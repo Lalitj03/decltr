@@ -1,0 +1,9 @@
+node_modules/
+.DS_Store
+*.log
+.env
+.env.*
+*.pem
+.playwright-mcp/
+# Screenshots taken while testing the UI
+dev/shot-*.png

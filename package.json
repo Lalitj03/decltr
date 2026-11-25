@@ -1,0 +1,25 @@
+{
+  "name": "decltr",
+  "version": "0.3.0",
+  "private": true,
+  "description": "Decltr: organize Chrome tabs with plain-English instructions. Includes the extension and a local companion server that keeps your Gemini API key off the browser.",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node server/bin/decltr-server.js start",
+    "set-key": "node server/bin/decltr-server.js set-key",
+    "status": "node server/bin/decltr-server.js status",
+    "server:install": "bash scripts/decltr-service.sh install",
+    "server:uninstall": "bash scripts/decltr-service.sh uninstall",
+    "server:start": "bash scripts/decltr-service.sh start",
+    "server:stop": "bash scripts/decltr-service.sh stop",
+    "server:restart": "bash scripts/decltr-service.sh restart",
+    "server:status": "bash scripts/decltr-service.sh status",
+    "server:logs": "bash scripts/decltr-service.sh logs",
+    "test": "node --test \"test/*.test.js\"",
+    "icons": "node scripts/make-icons.mjs",
+    "dev:ui": "node dev/serve.mjs"
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "manifest_version": 3,
+  "name": "Decltr built-in AI lab (throwaway)",
+  "version": "0.0.1",
+  "description": "Test-only extension for evaluating Chrome built-in AI. Not part of Decltr.",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA8+OS5mJYzFc640fELWT64BBCX8kAUk/x2YTIAV8sV9Z0EDdKwdFS2rjykZOsXpKwroCmdEDGb//UiwLg/wDmO5GosV9cjY7KIj/mIcKxJfOwnHp5Fzv2ocFzUVgRUoclN67pJaZb4512PQOzlgOGTJGykBztAikR9K9n/g6plsjzPqSCWc2HeouQ4pBaLhG4P2EA2C5h9vgH2nb54KEGAxA5vXd0twMdbD/Dsy6K0kNdZUG/pOLdTD+tPHuM+1J0v+Y51Z93s92+Jgy/DLk+vICUvNkGjospjtS+xhbf/J/KzJzQG+qVsFIJkxLn5EOP7HhrfMHggMeLrbrwEKRVkQIDAQAB",
+  "minimum_chrome_version": "138"
+}

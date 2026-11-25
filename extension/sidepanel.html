@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Decltr</title>
+    <link rel="stylesheet" href="sidepanel.css" />
+  </head>
+  <body>
+    <div id="app">
+      <header class="top">
+        <div class="brand">
+          <img src="icons/icon32.png" alt="" width="22" height="22" />
+          <span class="brand-name">Decltr</span>
+        </div>
+        <div class="top-right">
+          <button id="status" class="status" type="button" data-state="checking" aria-label="Server status: checking">
+            <span class="dot"></span><span id="statusText">Checking</span>
+          </button>
+          <button id="resetBtn" class="icon-btn" type="button" title="Start over" aria-label="Start over" hidden></button>
+          <button id="settingsBtn" class="icon-btn" type="button" title="Settings" aria-label="Settings" aria-expanded="false"></button>
+        </div>
+      </header>
+
+      <section id="settings" class="settings" hidden>
+        <label class="switch-row">
+          <input id="includePinned" type="checkbox" />
+          <span class="switch" aria-hidden="true"></span>
+          <span>
+            <strong>Include pinned tabs</strong>
+            <small>Off by default, so your pinned tabs are never touched.</small>
+          </span>
+        </label>
+        <label class="switch-row">
+          <input id="autoNameSessions" type="checkbox" />
+          <span class="switch" aria-hidden="true"></span>
+          <span>
+            <strong>Name new sessions with AI</strong>
+            <small>After saving, suggests a short name. Sends the session's tab titles and addresses to Gemini.</small>
+          </span>
+        </label>
+        <label class="switch-row">
+          <input id="liveSessions" type="checkbox" />
+          <span class="switch" aria-hidden="true"></span>
+          <span>
+            <strong>Keep opened sessions up to date</strong>
+            <small>While a session's window is open, tab and group changes are saved to it.</small>
+          </span>
+        </label>
+        <div class="server-box">
+          <div class="server-head">
+            <strong>Server</strong>
+            <span id="serverState" class="server-state">Checking…</span>
+          </div>
+          <p id="serverHelp" class="server-help"></p>
+          <div class="row">
+            <button id="restartBtn" class="btn small" type="button" disabled>Restart</button>
+            <button id="stopBtn" class="btn small danger-ghost" type="button" disabled>Stop</button>
+          </div>
+        </div>
+        <p class="privacy">
+          <strong>Privacy:</strong> when you use an AI action, tab titles and addresses (without
+          anything after "?" or "#") are sent to Google Gemini through the Decltr server on your computer.
+          Quick actions marked <em>On-device</em> send nothing. Saving, opening and syncing sessions stay in your browser, except for the optional AI naming above.
+        </p>
+      </section>
+
+      <nav class="nav" role="tablist" aria-label="Views">
+        <button id="navOrganize" class="nav-tab" role="tab" type="button" aria-selected="true">Organize</button>
+        <button id="navSessions" class="nav-tab" role="tab" type="button" aria-selected="false">Sessions <span id="sessionCount" class="count" hidden></span></button>
+      </nav>
+
+      <main id="thread" class="thread" aria-live="polite">
+        <section id="welcome" class="welcome">
+          <h1>How should I tidy your tabs?</h1>
+          <p id="welcomeSub" class="sub">Pick a quick action or describe what you want.</p>
+          <div id="presets" class="presets"></div>
+          <section id="groupsSection" hidden>
+            <p class="examples-title">Tab groups in this window</p>
+            <ul id="groups" class="group-list"></ul>
+          </section>
+          <p class="examples-title">Or try saying</p>
+          <div id="examples" class="examples"></div>
+        </section>
+      </main>
+
+      <section id="sessionsView" class="thread" hidden>
+        <form id="saveBox" class="save-box" autocomplete="off">
+          <h2>Save this window</h2>
+          <p id="saveInfo" class="sub"></p>
+          <div class="name-row">
+            <input id="sessionName" type="text" maxlength="60" aria-label="Session name" placeholder="Name this session" />
+            <button id="suggestBtn" class="icon-btn bordered" type="button" title="Suggest a name with AI" aria-label="Suggest a name with AI"></button>
+          </div>
+          <div class="row">
+            <button id="saveBtn" class="btn" type="submit">Save</button>
+            <button id="saveClearBtn" class="btn primary" type="button" title="Save the session, then close its tabs">Save &amp; clear</button>
+          </div>
+        </form>
+        <div id="sessionStatus" aria-live="polite"></div>
+        <p class="examples-title">Saved sessions</p>
+        <ul id="sessionList" class="session-list"></ul>
+        <p id="sessionsEmpty" class="empty" hidden>Nothing saved yet. Save this window and it will show up here, ready to open from any window.</p>
+      </section>
+
+      <footer class="composer">
+        <div id="chips" class="chips" hidden></div>
+        <form id="form" class="box" autocomplete="off">
+          <textarea id="input" rows="1" maxlength="1000" placeholder="e.g. Group my shopping tabs and close duplicates" aria-label="Tell Decltr how to organize your tabs"></textarea>
+          <button id="send" class="send" type="submit" title="Send" aria-label="Send"></button>
+        </form>
+        <p class="hint"><kbd>Enter</kbd> to send · <kbd>Shift</kbd>+<kbd>Enter</kbd> for a new line</p>
+      </footer>
+    </div>
+    <script type="module" src="sidepanel.js"></script>
+  </body>
+</html>

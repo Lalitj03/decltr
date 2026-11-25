@@ -1,0 +1,59 @@
+<!doctype html>
+<meta charset="utf-8" />
+<title>Decltr built-in AI lab</title>
+<body style="font: 14px system-ui; padding: 24px">
+  <h3>Decltr built-in AI lab</h3>
+  <p>Test page for Chrome's Prompt API (Gemini Nano). It only runs prompts handed to it by the test runner.</p>
+  <pre id="log">starting…</pre>
+<script>
+  const OPTS = { expectedInputs: [{ type: 'text', languages: ['en'] }], expectedOutputs: [{ type: 'text', languages: ['en'] }] };
+  const log = (t) => (document.getElementById('log').textContent = t);
+
+  window.__lab = {
+    exists: () => typeof LanguageModel !== 'undefined',
+    availability: () => LanguageModel.availability(OPTS),
+    activation: () => navigator.userActivation.isActive,
+
+    /** Starts the model download. Needs a user gesture, which the runner supplies. Progress is polled via __dl. */
+    startDownload() {
+      window.__dl = { state: 'starting', loaded: 0, error: null };
+      LanguageModel.create({
+        ...OPTS,
+        monitor(m) {
+          m.addEventListener('downloadprogress', (e) => {
+            window.__dl.state = 'downloading';
+            window.__dl.loaded = e.loaded;
+            log(`Downloading Gemini Nano: ${(e.loaded * 100).toFixed(1)}%`);
+          });
+        },
+      }).then((s) => { window.__dl.state = 'done'; log('Model ready'); s.destroy(); })
+        .catch((e) => { window.__dl.state = 'error'; window.__dl.error = `${e.name}: ${e.message}`; });
+      return true;
+    },
+    dl: () => window.__dl ?? null,
+
+    /** One prompt in a fresh session. Returns timings and either the output or the error. */
+    async run({ system, user, schema, timeoutMs = 90000 }) {
+      const t0 = performance.now();
+      let session;
+      try {
+        session = await LanguageModel.create({ ...OPTS, initialPrompts: [{ role: 'system', content: system }] });
+      } catch (e) {
+        return { ok: false, error: `${e.name}: ${e.message}`, stage: 'create' };
+      }
+      const createMs = performance.now() - t0;
+      const info = { contextWindow: session.contextWindow, usedBySystemPrompt: session.contextUsage };
+      try {
+        const t1 = performance.now();
+        const output = await session.prompt(user, { responseConstraint: schema, signal: AbortSignal.timeout(timeoutMs) });
+        return { ok: true, output, createMs, promptMs: performance.now() - t1, ...info, usedAfter: session.contextUsage };
+      } catch (e) {
+        const timedOut = e.name === 'TimeoutError' || e.name === 'AbortError';
+        return { ok: false, timedOut, error: timedOut ? `Timed out after ${timeoutMs / 1000}s (still generating)` : `${e.name}: ${e.message}`, requested: e.requested, window: e.contextWindow ?? info.contextWindow, stage: 'prompt', createMs, ...info };
+      } finally {
+        session.destroy();
+      }
+    },
+  };
+  log('ready');
+</script>
