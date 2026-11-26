@@ -95,6 +95,10 @@ export function createAiSettings({ els, getConfig, onSaved }) {
     els.consentText.textContent =
       `When you use an AI action or AI naming, Decltr sends your request and the titles and addresses of the tabs involved ` +
       `(without anything after "?" or "#") to ${where}. That service's own privacy policy applies to them. ` +
+      (config.provider === 'google'
+        ? `With a free Gemini API key, Google may use what it receives to improve its products, and people at Google may read it. ` +
+          `A key from a project with billing turned on is not used that way. `
+        : '') +
       `Nothing is sent until you use an AI action, and quick actions marked On-device never send anything. ` +
       `Decltr has no server of its own and collects nothing. You can change this at any time by choosing another model or forgetting the key.`;
     els.consent.hidden = false;

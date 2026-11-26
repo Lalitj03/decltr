@@ -22,7 +22,8 @@ DOMAIN="gui/$(id -u)"
 TARGET="$DOMAIN/$LABEL"
 PLIST="$HOME/Library/LaunchAgents/$LABEL.plist"
 LOG="$HOME/Library/Logs/$(echo "${LABEL#com.}" | tr '.' '-').log"
-ORIGIN="chrome-extension://${DECLTR_EXTENSION_ID:-jldfhgcphcbkmjmlkkioebphdaipkcjf}"
+EXTENSION_IDS="${DECLTR_EXTENSION_ID:-jldfhgcphcbkmjmlkkioebphdaipkcjf}"
+ORIGIN="chrome-extension://${EXTENSION_IDS%%,*}" # the status check speaks as the first allowed extension
 OLD_LABEL="com.declt.server" # the service before the product was renamed
 
 die() { echo "Error: $*" >&2; exit 1; }
@@ -87,14 +88,14 @@ retire_old_service() {
 
 # Settings that are only included when set in your shell at install time, e.g.
 #   DECLTR_PROVIDER=gemini npm run server:install
-EXTRA_ENV_NAMES=(DECLTR_PROVIDER DECLTR_MODEL DECLTR_THINKING_BUDGET)
+EXTRA_ENV_NAMES=(DECLTR_PROVIDER DECLTR_MODEL DECLTR_THINKING_BUDGET DECLTR_EXTENSION_ID)
 
 # Checked before anything is changed. The values end up inside an XML file, so refuse anything unusual.
 validate_extra_env() {
   local name
   for name in "${EXTRA_ENV_NAMES[@]}"; do
-    if [[ -n "${!name:-}" && ! "${!name}" =~ ^[A-Za-z0-9._-]+$ ]]; then
-      die "$name has characters that are not allowed. Use letters, digits, dot, dash or underscore."
+    if [[ -n "${!name:-}" && ! "${!name}" =~ ^[A-Za-z0-9._,-]+$ ]]; then
+      die "$name has characters that are not allowed. Use letters, digits, dot, dash, underscore or comma."
     fi
   done
 }

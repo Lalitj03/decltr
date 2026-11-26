@@ -170,7 +170,7 @@ Environment variables for the optional server:
 | `DECLTR_API_KEY` | your key, if you are not using the Keychain |
 | `DECLTR_MODEL` | `gemini-3.5-flash-lite` |
 | `DECLTR_THINKING_BUDGET` | `0` (raise for harder requests, up to 24576) |
-| `DECLTR_EXTENSION_ID` | the pinned ID (comma-separated list allowed) |
+| `DECLTR_EXTENSION_ID` | the pinned development ID. Comma-separated list allowed. For the background service, set it at install: `DECLTR_EXTENSION_ID=id1,id2 npm run server:install` |
 
 ## Development
 
@@ -181,6 +181,10 @@ npm run dev:ui   # preview the side panel in a normal tab: http://localhost:5173
 npm run icons    # regenerate extension/icons
 npm run package  # dist/decltr-<version>.zip for the Chrome Web Store, without the development "key"
 ```
+
+## Contributing, security and privacy
+
+See [CONTRIBUTING.md](CONTRIBUTING.md). Report security problems privately as described in [SECURITY.md](SECURITY.md). The privacy policy is [PRIVACY.md](PRIVACY.md). Store listing text and graphics are in [store/](store/LISTING.md).
 
 ## Licence
 
