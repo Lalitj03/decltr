@@ -139,6 +139,12 @@ export function createApp({ config, getApiKey, callModel = callGemini, control =
 
   function handleError(res, err) {
     if (res.headersSent) return res.end();
+    if (err?.code === 'payload_too_large') {
+      // The rest of the upload is not wanted. Close the connection once the reply is out, instead of
+      // leaving the client writing into a socket nobody reads (on Linux that can hang the client).
+      res.setHeader('Connection', 'close');
+      res.on('finish', () => res.req?.destroy());
+    }
     if (err instanceof RequestError || err instanceof UpstreamError) {
       return sendError(res, err.status, err.code, err.message);
     }
@@ -152,17 +158,21 @@ export function createApp({ config, getApiKey, callModel = callGemini, control =
   return server;
 }
 
+function tooLarge() {
+  const err = new RequestError('Request is too large.');
+  err.status = 413;
+  err.code = 'payload_too_large';
+  return err;
+}
+
 async function readJson(req) {
+  // A declared size that is already too big is refused before reading anything.
+  if (Number(req.headers['content-length']) > MAX_BODY_BYTES) throw tooLarge();
   const chunks = [];
   let size = 0;
   for await (const chunk of req) {
     size += chunk.length;
-    if (size > MAX_BODY_BYTES) {
-      const err = new RequestError('Request is too large.');
-      err.status = 413;
-      err.code = 'payload_too_large';
-      throw err;
-    }
+    if (size > MAX_BODY_BYTES) throw tooLarge();
     chunks.push(chunk);
   }
   try {

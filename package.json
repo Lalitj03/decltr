@@ -19,7 +19,7 @@
     "server:restart": "bash scripts/decltr-service.sh restart",
     "server:status": "bash scripts/decltr-service.sh status",
     "server:logs": "bash scripts/decltr-service.sh logs",
-    "test": "node --test \"test/*.test.js\"",
+    "test": "node scripts/test.mjs",
     "icons": "node scripts/make-icons.mjs",
     "dev:ui": "node dev/serve.mjs",
     "package": "node scripts/package-extension.mjs"

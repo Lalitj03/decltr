@@ -185,8 +185,15 @@ test('unexpected exceptions return a generic 500', async () => {
 
 test('oversized bodies are rejected', async () => {
   await withServer({}, async (call) => {
-    const res = await call('/v1/plan', { body: JSON.stringify({ instruction: 'x'.repeat(600_000), tabs }) });
-    assert.equal(res.status, 413);
+    // The server replies 413 and closes the connection while the upload is still going. Depending on
+    // timing and the system, the client sees either the 413 or the closed connection. Both are a refusal.
+    // What must never happen is a hang, which the request's own timeout turns into a failure.
+    const outcome = await call('/v1/plan', { body: JSON.stringify({ instruction: 'x'.repeat(600_000), tabs }) })
+      .then((res) => res.status)
+      .catch((err) => (err?.name === 'TimeoutError' ? 'hung' : 'closed'));
+    assert.ok(outcome === 413 || outcome === 'closed', `got ${outcome}`);
+    // The server is still fine afterwards.
+    assert.equal((await call('/v1/health')).status, 200);
   });
 });
 
