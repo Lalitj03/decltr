@@ -1,7 +1,8 @@
 #!/usr/bin/env node
-import { loadConfig, PROVIDERS } from '../src/config.js';
+import { loadConfig } from '../src/config.js';
 import { createApp, VERSION } from '../src/app.js';
 import { isValidKeyFormat, readApiKey, storeApiKey } from '../src/keychain.js';
+import { chooseProviderForKey, createKeySource, PROVIDER_LABELS } from '../src/provider.js';
 
 const command = process.argv[2] ?? 'start';
 
@@ -29,10 +30,9 @@ Usage: decltr-server <command>
 
 async function start() {
   const config = loadConfig();
-  // The key is cached after the first successful read; until then every
-  // request retries, so running set-key does not require a restart.
-  let cached = null;
-  const getApiKey = async () => (cached ??= await readApiKey(config.provider));
+  // Finds the API key and, from it, which Google API to call. Until a key exists it looks again on every
+  // request, so running set-key while the server is up needs no restart.
+  const getApiKey = createKeySource(config);
 
   // Exit codes are how the background service tells a deliberate stop from a failure: it brings the
   // server back after a non-zero exit (a crash, or a restart request) and leaves it stopped after 0.
@@ -73,19 +73,27 @@ async function start() {
 }
 
 async function setKey() {
-  const provider = process.argv[3] ?? loadConfig().provider;
-  if (!PROVIDERS.includes(provider)) throw new Error(`Provider must be one of: ${PROVIDERS.join(', ')}`);
-  const input = process.stdin.isTTY ? await promptHidden(`Paste your ${provider} API key (input is hidden): `) : await readAll(process.stdin);
+  const explicit = process.argv[3]; // optional: "vertex" or "gemini"
+  const input = process.stdin.isTTY ? await promptHidden('Paste your API key (input is hidden): ') : await readAll(process.stdin);
   const key = input.trim();
   if (!isValidKeyFormat(key)) throw new Error('That does not look like an API key.');
+
+  const { provider, warning } = chooseProviderForKey(key, explicit);
   await storeApiKey(provider, key);
-  console.log(`Saved the ${provider} key to the macOS Keychain (service "decltr"). The server picks it up automatically.`);
+  if (warning) console.log(`Warning: ${warning}`);
+  console.log(`Saved your ${PROVIDER_LABELS[provider]} key to the macOS Keychain.`);
+  console.log('A server that is already running with a key needs a restart to use this one: npm run server:restart');
+
+  // When both kinds are saved, Vertex AI is used. Only worth mentioning if that is not the one just saved.
+  if (provider === 'gemini' && (await readApiKey('vertex'))) {
+    console.log(`Note: you also have a ${PROVIDER_LABELS.vertex} key saved, and that one is used when both exist. To use this Gemini key instead, set DECLTR_PROVIDER=gemini (for the background service: DECLTR_PROVIDER=gemini npm run server:install).`);
+  }
 }
 
 async function status() {
   const config = loadConfig();
-  const hasKey = Boolean(await readApiKey(config.provider));
-  console.log(`Provider: ${config.provider}`);
+  const hasKey = Boolean(await createKeySource(config)()); // also settles which provider applies
+  console.log(`Provider: ${PROVIDER_LABELS[config.provider]}`);
   console.log(`API key: ${hasKey ? 'found' : 'missing'}`);
   try {
     const res = await fetch(`http://${config.host}:${config.port}/v1/health`, {

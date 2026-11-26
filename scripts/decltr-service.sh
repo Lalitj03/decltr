@@ -42,6 +42,24 @@ wait_healthy() {
   done
   return 1
 }
+# launchd finishes unloading a service a moment after bootout returns, and bootstrapping in that window
+# fails with "Input/output error". Wait for the unload, then retry a few times.
+wait_unloaded() {
+  for _ in $(seq 1 20); do
+    is_loaded || return 0
+    sleep 0.25
+  done
+  return 1
+}
+bootstrap_service() {
+  local out
+  for attempt in 1 2 3 4 5; do
+    if out="$(launchctl bootstrap "$DOMAIN" "$PLIST" 2>&1)"; then return 0; fi
+    sleep 1
+  done
+  die "launchd would not load the service: $out"
+}
+
 wait_port_free() {
   for _ in $(seq 1 30); do
     [[ -z "$(port_owner)" ]] && return 0
@@ -67,6 +85,28 @@ retire_old_service() {
   rm -f "$HOME/Library/LaunchAgents/$OLD_LABEL.plist"
 }
 
+# Settings that are only included when set in your shell at install time, e.g.
+#   DECLTR_PROVIDER=gemini npm run server:install
+EXTRA_ENV_NAMES=(DECLTR_PROVIDER DECLTR_MODEL DECLTR_THINKING_BUDGET)
+
+# Checked before anything is changed. The values end up inside an XML file, so refuse anything unusual.
+validate_extra_env() {
+  local name
+  for name in "${EXTRA_ENV_NAMES[@]}"; do
+    if [[ -n "${!name:-}" && ! "${!name}" =~ ^[A-Za-z0-9._-]+$ ]]; then
+      die "$name has characters that are not allowed. Use letters, digits, dot, dash or underscore."
+    fi
+  done
+}
+
+extra_env() {
+  local name
+  for name in "${EXTRA_ENV_NAMES[@]}"; do
+    [[ -n "${!name:-}" ]] && printf '    <key>%s</key><string>%s</string>\n' "$name" "${!name}"
+  done
+  return 0
+}
+
 write_plist() {
   local node_bin="$1"
   mkdir -p "$HOME/Library/LaunchAgents" "$HOME/Library/Logs"
@@ -86,6 +126,7 @@ write_plist() {
   <dict>
     <key>DECLTR_MANAGED</key><string>1</string>
     <key>DECLTR_PORT</key><string>$PORT</string>
+$(extra_env)
   </dict>
   <key>RunAtLoad</key><true/>
   <!-- Bring it back after a crash or a restart request (non-zero exit), but not after a deliberate stop (exit 0). -->
@@ -103,6 +144,7 @@ EOF
 cmd_install() {
   local replace=0
   [[ "${1:-}" == "--replace" ]] && replace=1
+  validate_extra_env
   local node_bin
   node_bin="$(command -v node || true)"
   [[ -n "$node_bin" ]] || die "Node.js was not found in your PATH. Install Node 20+ and try again."
@@ -132,9 +174,12 @@ Stop it (Ctrl+C in its terminal), or run this again with --replace to stop it fo
     fi
   fi
 
-  is_loaded && launchctl bootout "$TARGET" 2>/dev/null || true
+  if is_loaded; then
+    launchctl bootout "$TARGET" 2>/dev/null || true
+    wait_unloaded || die "the existing service did not unload. Try again in a few seconds."
+  fi
   write_plist "$node_bin"
-  launchctl bootstrap "$DOMAIN" "$PLIST"
+  bootstrap_service
 
   if wait_healthy; then
     echo "Decltr server is installed and running. It will start at every login."
@@ -158,7 +203,7 @@ cmd_start() {
   if is_loaded; then
     launchctl kickstart "$TARGET"
   else
-    launchctl bootstrap "$DOMAIN" "$PLIST"
+    bootstrap_service
   fi
   wait_healthy || die "started, but it is not answering. Check the log: scripts/decltr-service.sh logs"
   echo "Started."
@@ -183,7 +228,7 @@ cmd_restart() {
   if is_loaded; then
     launchctl kickstart -k "$TARGET"
   else
-    launchctl bootstrap "$DOMAIN" "$PLIST"
+    bootstrap_service
   fi
   wait_healthy || die "restarted, but it is not answering. Check the log: scripts/decltr-service.sh logs"
   echo "Restarted${before:+ (was pid $before, now pid $(service_pid))}."

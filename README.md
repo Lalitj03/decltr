@@ -3,45 +3,63 @@
 Tell Chrome how to tidy your tabs in plain English. Decltr can **group**, **ungroup**, **close**, **move to a new window** and **bookmark** the tabs in a window. It shows a plan first, and you can **undo** it afterwards.
 
 ```
-Chrome side panel  ──►  Decltr server (127.0.0.1:47821)  ──►  Vertex AI (Gemini)
+Chrome side panel  ──►  Decltr server (127.0.0.1:47821)  ──►  Google Gemini
  (extension/)            (server/, holds the API key)
 ```
 
-Nothing is hosted anywhere. The server runs on your Mac, and the API key never enters the browser.
+Nothing is hosted anywhere. A small server runs on your own computer and holds your API key, so the key never enters the browser.
 
-## Setup
+## Quick start
 
-**1. Load the extension**
+You need **Chrome 116+**, **Node 20+** (nothing to `npm install`) and a Google API key (see "Which key?" below). The steps are written for **macOS**, which is the only system I have tested.
+
+```bash
+git clone <this repo> && cd <the folder>
+
+npm run set-key           # paste your key (the input is hidden). It is stored in your Keychain.
+npm run server:install    # starts the server now, in the background, and at every login
+```
+
+Then load the extension:
+
 1. Open `chrome://extensions` and turn on **Developer mode**.
 2. Click **Load unpacked** and choose the `extension/` folder.
-3. Pin the Decltr icon. Clicking it opens the side panel.
+3. Pin the Decltr icon and click it to open the side panel.
 
-The extension ID is pinned to `jldfhgcphcbkmjmlkkioebphdaipkcjf`. The server only accepts requests from that ID.
+The status pill at the top of the panel should say **Ready**. If it says "Server offline" or "No API key", run `npm run server:status`, which tells you what is missing.
 
-**2. Run the server**
+The extension ID is pinned, so the server only accepts requests from this extension.
+The on-device quick actions and sessions work without the server or a key. Only the AI actions need them.
 
-The server must be running for AI actions (the on-device quick actions and sessions work without it). Pick one:
+### Which key?
+
+Either kind works, and Decltr works out which one you pasted.
+
+| Key | Looks like | Comes from |
+| --- | --- | --- |
+| **Gemini API key** | starts with `AIza` | Google AI Studio |
+| **Vertex AI key** | starts with `AQ.` | Google Cloud, bound to a service account with the `Vertex AI Express User` role |
+
+If you save both, Vertex AI is used. To use the other one, set `DECLTR_PROVIDER=gemini` (or `vertex`); for the background service, set it when installing: `DECLTR_PROVIDER=gemini npm run server:install`.
+To replace a key, run `npm run set-key` again, then `npm run server:restart`. A server that has no key yet notices a new one by itself.
+If a key's format is not recognised, say which kind it is: `npm run set-key gemini` or `npm run set-key vertex`.
+
+Your key stays in the macOS Keychain, never in a file or in this repo. It is sent to nobody except Google.
+
+### Not on macOS, or you would rather not use the Keychain
+
+Set the key in the environment and run the server in a terminal. The background-service commands and the Keychain are macOS only.
 
 ```bash
-npm run server:install     # recommended: runs in the background and starts at every login
-npm start                  # or: runs in this terminal only, until you press Ctrl+C
+DECLTR_API_KEY=your-key npm start                    # macOS / Linux
+```
+```powershell
+$env:DECLTR_API_KEY="your-key"; npm start             # Windows PowerShell
 ```
 
-If a server is already running from a terminal, `npm run server:install -- --replace` stops it and sets up the background one.
+### Run it in a terminal instead of the background
 
-**3. API key**
-By default Decltr calls **Vertex AI**, so usage is billed to your Google Cloud project and its credits. Vertex only accepts an API key that is bound to a service account with the `Vertex AI Express User` role:
-```bash
-gcloud services api-keys create --display-name="Decltr (Vertex AI)" \
-  --service-account=<service-account-email> --api-target=service=aiplatform.googleapis.com
-```
-The key is stored in the macOS Keychain under the service name `decltr` (account `vertex-api-key`). To store or replace it:
-```bash
-npm run set-key        # prompts with hidden input
-```
-On other platforms, set `DECLTR_API_KEY` in the server's environment instead.
-
-To use the Gemini Developer API (AI Studio, prepaid) instead, set `DECLTR_PROVIDER=gemini` and run `npm run set-key gemini`.
+`npm start` runs the server until you press Ctrl+C. If one is already running that way, `npm run server:install -- --replace` stops it and sets up the background one.
 
 ## Controlling the background server
 
@@ -106,15 +124,15 @@ Bookmarks go into **Other bookmarks → Decltr → \<folder\>**. Pinned tabs are
 
 ## How the key is protected
 
-- It is read from the Keychain by the server and held in memory. It is never sent to the extension, written to a file or logged, and it is scrubbed from error messages.
+- On macOS it is read from the Keychain by the server and held in memory. It is never sent to the extension, written to a file or logged, and it is scrubbed from error messages.
 - The server binds to `127.0.0.1` only. It rejects any request whose `Origin` is not the Decltr extension, which blocks web pages you visit from using it. It also checks the `Host` header against DNS rebinding.
 - The server builds the Gemini request itself from a fixed prompt and schema, so it cannot be used as a general proxy. It is also rate limited and has a request size cap.
-- The Google Cloud key is restricted to the Vertex AI API and bound to a service account.
+- Give the key only the access it needs. A Vertex AI key should be restricted to the Vertex AI API and bound to a service account, and any key can be deleted from Google Cloud or AI Studio if you ever suspect it leaked.
 - A process running as you could forge the headers, but it could also read your Keychain, so the server does not try to defend against that.
 
 ## Privacy
 
-For AI actions, tab titles and URLs (origin and path only; query strings and fragments are removed) are sent to Google (Vertex AI). Page titles are treated as untrusted data: the model's output is validated twice, can only reference your own tab IDs, and cannot create URLs. Nothing changes until you press Apply.
+For AI actions, tab titles and URLs (origin and path only; query strings and fragments are removed) are sent to Google (Gemini, through Vertex AI or the Gemini API, depending on your key). Page titles are treated as untrusted data: the model's output is validated twice, can only reference your own tab IDs, and cannot create URLs. Nothing changes until you press Apply.
 
 ## Configuration
 
@@ -123,7 +141,8 @@ Environment variables for the server:
 | Variable | Default |
 | --- | --- |
 | `DECLTR_PORT` | `47821` (if you change it, update `host_permissions` and `SERVER_URL` in the extension too) |
-| `DECLTR_PROVIDER` | `vertex` (or `gemini`) |
+| `DECLTR_PROVIDER` | chosen from your key; set `vertex` or `gemini` to force one |
+| `DECLTR_API_KEY` | your key, if you are not using the Keychain |
 | `DECLTR_MODEL` | `gemini-3.5-flash-lite` |
 | `DECLTR_THINKING_BUDGET` | `0` (raise for harder requests, up to 24576) |
 | `DECLTR_EXTENSION_ID` | the pinned ID (comma-separated list allowed) |

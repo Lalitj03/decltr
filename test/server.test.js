@@ -21,6 +21,7 @@ async function withServer({ callModel, getApiKey = async () => FAKE_KEY } = {}, 
   config.port = port;
   const call = (path, { method = 'POST', headers = {}, body = '{}' } = {}) =>
     fetch(`http://127.0.0.1:${port}${path}`, {
+      signal: AbortSignal.timeout(10_000), // a hung request must fail this one test, not stall the rest of the file
       method,
       headers: { 'content-type': 'application/json', origin: ORIGIN, ...headers },
       body: method === 'GET' ? undefined : body,
@@ -369,6 +370,7 @@ async function withManaged({ managed }, fn) {
   config.port = server.address().port;
   const call = (path, body, headers = {}) =>
     fetch(`http://127.0.0.1:${config.port}${path}`, {
+      signal: AbortSignal.timeout(10_000), // a hung request must fail this one test, not stall the rest of the file
       method: 'POST',
       headers: { 'content-type': 'application/json', origin: ORIGIN, ...headers },
       body: JSON.stringify(body),
