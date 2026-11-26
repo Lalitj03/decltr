@@ -147,6 +147,17 @@ The **Sessions** tab saves a window as a named workspace and reopens it later, i
 
 Bookmarks go into **Other bookmarks → Decltr → \<folder\>**. The first time a plan saves bookmarks, Chrome asks whether Decltr may use them. If you say no, nothing in that plan is changed, so tabs are never closed without being saved. Pinned tabs are left alone unless you enable them in settings.
 
+## How safe is a key kept in the browser?
+
+A key you paste into Settings is about as safe as one in a config file or `.env` on your computer.
+
+- Only Decltr can read it. Web pages and other extensions cannot, and it is not synced to your Google account or other devices.
+- It is sent only to the service it belongs to, never shown again in the settings form, and removed from error messages.
+- Chrome stores extension data unencrypted in your browser profile folder. Any program running as you, such as malware, could read it, and so could anyone who copies that folder. The optional local server's Keychain storage protects better against this.
+- If the extension itself were ever compromised, for example by a bad update, the key could leak. This is true of every extension that holds a key.
+
+To limit the damage if a key does leak, restrict it to the one API it is for and set a spending limit with your provider. Delete it if you suspect a leak, and use **Forget the saved key** when you stop using Decltr. Ollama needs no key at all.
+
 ## How the key is protected (local server)
 
 - On macOS it is read from the Keychain by the server and held in memory. It is never sent to the extension, written to a file or logged, and it is scrubbed from error messages.

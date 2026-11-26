@@ -22,6 +22,10 @@ Where AI requests go depends on what you choose in Settings → AI model:
 
 Before anything goes to another computer, Decltr shows what it sends and where, and waits for you to agree. Quick actions marked *On-device* never send anything.
 
+## How your API key is stored
+
+Your key is kept in Chrome's storage for this extension. Web pages and other extensions cannot read it, and it is not synced. Chrome does not encrypt this storage, so other programs running under your user account on your computer could read it. Restrict the key to the API it is for, set a spending limit with your provider, and delete the key if you think it leaked. Ollama on your own computer needs no key.
+
 ## What Decltr does not do
 
 - It does not collect, sell or share your data, and does not use it for anything except the action you asked for.
