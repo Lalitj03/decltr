@@ -1,10 +1,12 @@
-import { h, icon } from './ui.js';
+import { h, icon, progressView } from './ui.js';
 import { snapshot } from './lib/tabs.js';
 import { nameWithAI } from './lib/ai/index.js';
 import { undoPlan } from './lib/actions.js';
 import {
-  buildSession, defaultSessionName, describeSession, loadSessions, renameSession, saveableTabs, saveSession,
+  buildSession, defaultSessionName, describeSession, knowsLastUse, loadSessions, pickByLastUse, renameSession, saveableTabs, saveSession,
 } from './lib/sessions.js';
+import { ago } from './lib/archive.js';
+import { LIGHT_OPEN_FROM } from './lib/light-open.js';
 import { autoNameInBackground, clearSavedTabs, openTracked, removeSession, undoTrackedOpen } from './lib/session-ops.js';
 import { getLinks, unlinkSession } from './lib/tracker.js';
 
@@ -18,7 +20,8 @@ const nameInput = (session) => session.tabs.map((t) => ({ title: t.title, url: t
 /** The "Sessions" tab: save this window, name sessions, and open them in any window. */
 export function createSessionsView({ els, getSettings, getAiConfig }) {
   const suggestName = (tabs) => nameWithAI(tabs, getAiConfig());
-  const state = { busy: false, nameEdited: false, confirmId: null, confirmTimer: null, expanded: new Set(), editingId: null, lastSig: '', deferred: false };
+  // picked: sessionId -> Set of tab positions chosen in the picker ("open part of a session").
+  const state = { busy: false, nameEdited: false, confirmId: null, confirmTimer: null, expanded: new Set(), editingId: null, lastSig: '', deferred: false, picked: new Map(), stop: null };
 
   const windowSnapshot = () => snapshot({ includePinned: getSettings().includePinned, limit: Infinity });
 
@@ -206,7 +209,7 @@ export function createSessionsView({ els, getSettings, getAiConfig }) {
           onClick: () => openIt(session, 'here'),
         }, icon('here', 15), 'This window'),
         h('button', {
-          class: 'icon-btn expand', type: 'button', 'aria-expanded': String(expanded), 'aria-label': `Show tabs in ${session.name}`, title: 'Show tabs',
+          class: 'icon-btn expand', type: 'button', 'aria-expanded': String(expanded), 'aria-label': `Show tabs in ${session.name}, or open some of them`, title: 'Show tabs, or open some of them',
           onClick: () => {
             if (expanded) state.expanded.delete(session.id);
             else state.expanded.add(session.id);
@@ -226,6 +229,7 @@ export function createSessionsView({ els, getSettings, getAiConfig }) {
   function titleRow(session) {
     return h('div', { class: 'title-row' },
       h('div', { class: 'session-name' }, session.name),
+      session.kind === 'archive' ? h('span', { class: 'tag', title: 'Made by Archive old tabs' }, icon('clock', 12), 'Archive') : null,
       h('button', {
         class: 'icon-btn small', type: 'button', title: 'Rename', 'aria-label': `Rename ${session.name}`,
         onClick: () => {
@@ -277,18 +281,98 @@ export function createSessionsView({ els, getSettings, getAiConfig }) {
     );
   }
 
+  /**
+   * The expanded session: every tab, sorted under its group, each with a checkbox. Picking some shows
+   * buttons to open just those. A quick pick selects the most or least recently used tabs.
+   * The list updates itself on clicks, so picking never rebuilds the session list.
+   */
   function tabList(session) {
-    return h('ul', { class: 'session-tabs' },
-      session.tabs.slice(0, 300).map((t) => {
-        const group = t.g >= 0 ? session.groups[t.g] : null;
-        return h('li', { class: 'tab-item', title: t.url },
-          group ? h('span', { class: 'swatch', style: { background: COLOR_VAR(group.color) }, title: group.title || 'Unnamed group' }) : h('span', { class: 'swatch', style: { background: 'transparent' } }),
-          h('img', { class: 'fav', alt: '', src: t.favIcon || null, referrerpolicy: 'no-referrer', onError: (e) => e.target.removeAttribute('src') }),
-          h('span', { class: 'tab-title' }, t.title || t.url),
-        );
-      }),
-      session.tabs.length > 300 ? h('li', { class: 'tab-item' }, h('span', { class: 'tab-title' }, `…and ${session.tabs.length - 300} more`)) : null,
+    const picked = state.picked.get(session.id) ?? new Set();
+    state.picked.set(session.id, picked);
+    const total = session.tabs.length;
+    const sections = [];
+    session.groups.forEach((g, gi) => sections.push({ g: gi, title: g.title || 'Unnamed group', color: g.color, positions: [] }));
+    const loose = { g: -1, title: 'Not in a group', color: null, positions: [] };
+    session.tabs.forEach((t, i) => (t.g >= 0 ? sections[t.g] : loose).positions.push(i));
+    if (loose.positions.length) sections.push(loose);
+
+    const boxes = new Map(); // position -> checkbox
+    const heads = []; // [checkbox, section]
+    const count = h('b', null, '');
+    const foot = h('div', { class: 'picker-foot', hidden: true },
+      count,
+      h('div', { class: 'row' },
+        h('button', { class: 'btn primary', type: 'button', onClick: () => openIt(session, 'new', [...picked]) }, icon('newWindow', 15), 'New window'),
+        h('button', { class: 'btn', type: 'button', onClick: () => openIt(session, 'here', [...picked]) }, icon('here', 15), 'This window'),
+      ),
+      h('small', null, 'A window with part of a session is not kept up to date, so the saved session stays whole.'),
     );
+    const sync = () => {
+      for (const [i, box] of boxes) box.checked = picked.has(i);
+      for (const [box, sec] of heads) {
+        const n = sec.positions.filter((i) => picked.has(i)).length;
+        box.checked = n > 0 && n === sec.positions.length;
+        box.indeterminate = n > 0 && n < sec.positions.length;
+      }
+      count.textContent = `${picked.size} of ${total} tab${total === 1 ? '' : 's'} picked`;
+      foot.hidden = picked.size === 0;
+      foot.querySelectorAll('.btn').forEach((b) => (b.disabled = state.busy));
+    };
+    const toggle = (positions, on) => {
+      positions.forEach((i) => (on ? picked.add(i) : picked.delete(i)));
+      sync();
+    };
+
+    const quick = [['', 'Pick…'], ['all', 'All tabs'], ['none', 'None']];
+    if (knowsLastUse(session)) {
+      for (const n of [10, 25, 50, 100]) if (n < total) quick.push([`new:${n}`, `${n} most recently used`]);
+      for (const n of [10, 25, 50, 100]) if (n < total) quick.push([`old:${n}`, `${n} least recently used`]);
+    }
+    const select = h('select', { class: 'quick-pick', 'aria-label': 'Pick tabs quickly' }, quick.map(([v, label]) => h('option', { value: v }, label)));
+    select.addEventListener('change', () => {
+      const [kind, n] = select.value.split(':');
+      picked.clear();
+      if (kind === 'all') session.tabs.forEach((_, i) => picked.add(i));
+      if (kind === 'new' || kind === 'old') pickByLastUse(session, { count: Number(n), newest: kind === 'new' }).forEach((i) => picked.add(i));
+      select.value = '';
+      sync();
+    });
+
+    const list = h('ul', { class: 'session-tabs' },
+      sections.map((sec) => {
+        const head = h('input', { type: 'checkbox', class: 'check', 'aria-label': `Pick all of ${sec.title}` });
+        head.addEventListener('change', () => toggle(sec.positions, head.checked));
+        heads.push([head, sec]);
+        const showHead = session.groups.length > 0;
+        return [
+          showHead ? h('li', { class: 'pick-group' },
+            head,
+            sec.color ? h('span', { class: 'swatch', style: { background: COLOR_VAR(sec.color) } }) : h('span', { class: 'swatch', style: { background: 'transparent', border: '1px dashed var(--line)' } }),
+            h('span', { class: 'tab-title' }, sec.title),
+            h('span', { class: 'group-count' }, String(sec.positions.length)),
+          ) : null,
+          sec.positions.map((i) => {
+            const t = session.tabs[i];
+            const box = h('input', { type: 'checkbox', class: 'check', 'aria-label': `Pick ${t.title || t.url}` });
+            box.addEventListener('change', () => toggle([i], box.checked));
+            boxes.set(i, box);
+            return h('li', { class: `tab-item pick${showHead ? ' indent' : ''}`, title: t.url },
+              box,
+              h('img', { class: 'fav', alt: '', src: t.favIcon || null, referrerpolicy: 'no-referrer', onError: (e) => e.target.removeAttribute('src') }),
+              h('span', { class: 'tab-title', onClick: () => toggle([i], !picked.has(i)) }, t.title || t.url),
+              t.used ? h('span', { class: 'tab-when' }, ago(t.used)) : null,
+            );
+          }),
+        ];
+      }),
+    );
+    const node = h('div', { class: 'picker' },
+      h('div', { class: 'picker-bar' }, h('span', null, 'Open only some tabs?'), select),
+      list,
+      foot,
+    );
+    sync();
+    return node;
   }
 
   function armDelete(id) {
@@ -316,24 +400,39 @@ export function createSessionsView({ els, getSettings, getAiConfig }) {
     renderList();
   }
 
-  async function openIt(session, target) {
+  async function openIt(session, target, positions) {
     if (state.busy) return;
     setBusy(true);
+    const n = positions ? positions.length : session.tabs.length;
+    const stop = new AbortController();
+    let progress = null;
+    if (n >= LIGHT_OPEN_FROM) {
+      // Big sessions open without loading every tab, a few at a time, so show how far it is.
+      progress = progressView({ title: `Opening ${n} tabs`, detail: 'They load when you click them.', iconName: 'newWindow', onStop: () => stop.abort() });
+      els.status.replaceChildren(progress.node);
+    }
     try {
       const win = await chrome.windows.getCurrent();
-      const info = await openTracked(session, { target, windowId: win.id });
+      const info = await openTracked(session, {
+        target, windowId: win.id, positions, signal: stop.signal,
+        onProgress: (p) => progress?.set({ detail: `${p.done} of ${p.total} opened. They load when you click them.`, done: p.done, total: p.total }),
+      });
       if (info.switched) return setStatus({ text: `Switched to “${session.name}”`, sub: 'It was already open in another window.' });
-      if (info.createdIds.length === 0) return setStatus({ error: 'None of the tabs in this session could be opened.' });
+      if (info.createdIds.length === 0) return setStatus({ error: info.stopped ? 'Stopped before any tab was opened.' : 'None of the tabs in this session could be opened.' });
       const failed = info.failed.length ? `${info.failed.length} tab${info.failed.length === 1 ? '' : 's'} could not be opened.` : null;
+      const opened = info.createdIds.length;
       setStatus({
-        text: `Opened “${session.name}”`,
+        text: info.stopped ? `Stopped after ${opened} of ${n} tabs` : info.partial ? `Opened ${opened} of ${session.tabs.length} tabs from “${session.name}”` : `Opened “${session.name}”`,
         sub: [
           target === 'new' ? 'In a new window.' : 'In this window.',
+          info.unloaded ? 'Tabs load when you click them, to save memory.' : null,
           info.tracking ? 'Changes there are saved to the session automatically.' : null,
+          info.partial || info.stopped ? 'That window is not kept in sync, so the saved session stays whole.' : null,
           failed,
         ].filter(Boolean).join(' '),
         undo: () => undoTrackedOpen(info),
       });
+      if (positions) state.picked.delete(session.id);
     } catch (err) {
       setStatus({ error: err?.message ?? 'Could not open the session.' });
     } finally {

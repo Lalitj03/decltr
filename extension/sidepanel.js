@@ -1,14 +1,17 @@
-import { h, icon } from './ui.js';
+import { h, icon, progressView } from './ui.js';
 import { ApiError, checkHealth, controlServer, serverIsCurrent } from './lib/api.js';
 import { planWithAI, nameWithAI } from './lib/ai/index.js';
-import { AI_KEY, hasConsent, isConfigured, loadAiConfig, PROVIDER_NAMES } from './lib/ai/config.js';
+import { AI_KEY, consentTarget, hasConsent, isConfigured, loadAiConfig, PROVIDER_NAMES } from './lib/ai/config.js';
+import { SINGLE_PLAN_MAX } from './lib/ai/parts.js';
 import { hasAccess, requestAccess, syncOriginRule } from './lib/ai/network.js';
 import { createAiSettings } from './ai-settings.js';
 import { snapshot, toApiTabs } from './lib/tabs.js';
 import {
-  describeActions, planCloseDuplicates, planCloseGroup, planGroupBySite, planSaveSession, planUngroupAll, planUngroupGroup, sanitizePlan,
+  clean, describeActions, planCloseDuplicates, planCloseGroup, planGroupBySite, planSaveSession, planUngroupAll, planUngroupGroup, sanitizePlan,
 } from './lib/plan.js';
-import { applyPlan, describeResult, hasUndoableChanges, needsBookmarks, undoPlan } from './lib/actions.js';
+import { applyPlan, describeResult, hasUndoableChanges, needsBookmarks, tabsToReopen, undoPlan } from './lib/actions.js';
+import { ago, countByAge, knowsLastUse, planArchive } from './lib/archive.js';
+import { LIGHT_OPEN_FROM } from './lib/light-open.js';
 import { createSessionsView } from './sessions-view.js';
 import { isSessionKey } from './lib/sessions.js';
 import { LINKS_KEY, unlinkAll } from './lib/tracker.js';
@@ -17,7 +20,7 @@ const $ = (id) => document.getElementById(id);
 const els = {
   groups: $('groups'), groupsSection: $('groupsSection'),
   navOrganize: $('navOrganize'), navSessions: $('navSessions'), sessionsView: $('sessionsView'), composer: document.querySelector('.composer'),
-  thread: $('thread'), welcome: $('welcome'), welcomeSub: $('welcomeSub'), presets: $('presets'), examples: $('examples'),
+  thread: $('thread'), welcome: $('welcome'), welcomeSub: $('welcomeSub'), presets: $('presets'), examples: $('examples'), hint: $('hint'),
   form: $('form'), input: $('input'), send: $('send'), chips: $('chips'), status: $('status'), statusText: $('statusText'),
   aiBox: $('aiBox'), serverBox: $('serverBox'), aiState: $('aiState'), aiProvider: $('aiProvider'), aiHelp: $('aiHelp'), aiSave: $('aiSave'), aiResult: $('aiResult'),
   aiConsent: $('aiConsent'), aiConsentTitle: $('aiConsentTitle'), aiConsentText: $('aiConsentText'), aiConsentYes: $('aiConsentYes'), aiConsentNo: $('aiConsentNo'),
@@ -36,9 +39,6 @@ const PRESETS = [
     id: 'topic', icon: 'sparkles', title: 'Group by topic', desc: 'Smart groups with clear names', ai: true,
     prompt: 'Group my tabs by topic or task and give each group a short, clear name. Leave one-off tabs ungrouped. Do not close or move anything.',
   },
-  { id: 'site', icon: 'globe', title: 'Group by site', desc: 'One group per website', local: planGroupBySite },
-  { id: 'dupes', icon: 'copy', title: 'Close duplicates', desc: 'Keep one copy of each page', local: planCloseDuplicates },
-  { id: 'session', icon: 'archive', title: 'Bookmark & clear', desc: 'Bookmark every tab, then close them', local: (tabs) => planSaveSession(tabs) },
   {
     id: 'leisure', icon: 'window', title: 'Split off leisure', desc: 'Video, social and shopping to a new window', ai: true,
     prompt: 'Move entertainment, video, social media and shopping tabs into a new window. Leave work and research tabs where they are.',
@@ -47,13 +47,20 @@ const PRESETS = [
     id: 'tidy', icon: 'sliders', title: 'Full tidy-up', desc: 'Remove clutter, then group the rest', ai: true,
     prompt: 'Do a full tidy-up: close duplicate tabs and empty or error pages, then group the remaining tabs by topic.',
   },
-  { id: 'ungroup', icon: 'ungroup', title: 'Ungroup all', desc: 'Dissolve every group, keep the tabs', local: planUngroupAll },
   {
     id: 'regroup', icon: 'reset', title: 'Regroup from scratch', desc: 'Ungroup everything, then group by topic', ai: true,
     prompt: 'Ungroup every tab that is currently in a tab group, then regroup all tabs by topic or task with fresh, clear names. Do not close or move anything.',
   },
+  { id: 'site', icon: 'globe', title: 'Group by site', desc: 'One group per website', local: planGroupBySite },
+  { id: 'dupes', icon: 'copy', title: 'Close duplicates', desc: 'Keep one copy of each page', local: planCloseDuplicates },
+  { id: 'archive', icon: 'clock', title: 'Archive old tabs', desc: 'Save tabs you have not used lately, then close them', archive: true },
+  { id: 'session', icon: 'archive', title: 'Bookmark & clear', desc: 'Bookmark every tab, then close them', local: (tabs) => planSaveSession(tabs) },
+  { id: 'ungroup', icon: 'ungroup', title: 'Ungroup all', desc: 'Dissolve every group, keep the tabs', local: planUngroupAll },
 ];
-
+const preset = (id) => PRESETS.find((p) => p.id === id);
+/** From this many tabs, the start screen suggests ways to make the window lighter. */
+const BIG_WINDOW = 120;
+const HINT_KEY = 'decltr.hintDismissed';
 const EXAMPLES = [
   'Bookmark all recipe tabs into a folder called Recipes and close them',
   'Put everything about my Lisbon trip in one group',
@@ -114,6 +121,7 @@ const aiSettings = createAiSettings({
     state.ai = config;
     state.aiChosen = true;
     els.welcome.querySelector('[data-setup]')?.remove();
+    refreshAiWhere();
     refreshHealth();
   },
 });
@@ -193,15 +201,34 @@ function autosize() {
 /* ----------------------------------------------------------------- welcome */
 
 function renderPresets() {
+  const card = (p) =>
+    h('button', { class: 'preset', type: 'button', 'data-id': p.id, onClick: () => run({ label: p.title, preset: p }) },
+      icon(p.icon, 20),
+      h('b', null, p.title),
+      h('span', { class: 'desc' }, p.desc),
+    );
   els.presets.replaceChildren(
-    ...PRESETS.map((p) =>
-      h('button', { class: 'preset', type: 'button', 'data-id': p.id, onClick: () => run({ label: p.title, preset: p }) },
-        h('div', { class: 'preset-head' }, icon(p.icon, 20), h('span', { class: `badge${p.local ? ' local' : ''}` }, p.local ? 'On-device' : 'AI')),
-        h('b', null, p.title),
-        h('span', { class: 'desc' }, p.desc),
-      ),
-    ),
+    h('div', { class: 'section-head' }, h('span', null, 'With AI'), h('small', { id: 'aiWhere' }, aiWhereText())),
+    h('div', { class: 'preset-grid' }, PRESETS.filter((p) => p.ai).map(card)),
+    h('div', { class: 'section-head' }, h('span', null, 'On this device'), h('small', null, 'Nothing leaves your computer')),
+    h('div', { class: 'preset-grid' }, PRESETS.filter((p) => !p.ai).map(card)),
   );
+}
+
+/** Where AI actions send tab details, in a few words, so it is clear before anything is clicked. */
+function aiWhereText() {
+  const c = state.ai;
+  if (!c) return '';
+  if (c.provider === 'server') return 'Through the Decltr server';
+  if (!isConfigured(c)) return 'Choose a model first';
+  if (c.provider === 'ollama') return consentTarget(c) ? `Sends tab titles to ${new URL(c.ollama.baseUrl).host}` : 'Runs on this computer';
+  if (c.provider === 'google') return 'Sends tab titles to Google';
+  return `Sends tab titles to ${new URL(c.openai.baseUrl).host}`;
+}
+
+function refreshAiWhere() {
+  const el = document.getElementById('aiWhere');
+  if (el) el.textContent = aiWhereText();
 }
 
 function renderExamples() {
@@ -225,6 +252,7 @@ async function updateTabCount() {
     const hidden = snap.pinnedCount > 0 && !state.includePinned ? ` (${snap.pinnedCount} pinned left alone)` : '';
     els.welcomeSub.textContent = `${snap.total} tab${snap.total === 1 ? '' : 's'} in this window${hidden}. Pick a quick action or describe what you want.`;
     renderGroups(snap);
+    await renderHint(snap);
     if (state.view === 'sessions') sessionsView.refreshSaveBox();
   } catch {
     /* panel is closing */
@@ -240,6 +268,45 @@ function showView(view) {
   els.navOrganize.setAttribute('aria-selected', String(!sessions));
   els.navSessions.setAttribute('aria-selected', String(sessions));
   if (sessions) sessionsView.refresh();
+}
+
+/**
+ * A window with hundreds of tabs gets a short list of ways to make it lighter, each with what it
+ * would do right now. Dismissed for the rest of the browser session per window.
+ */
+async function renderHint(snap) {
+  const dismissed = ((await chrome.storage.session.get(HINT_KEY))[HINT_KEY] ?? {})[snap.windowId];
+  if (snap.total < BIG_WINDOW || dismissed) {
+    els.hint.hidden = true;
+    els.hint.dataset.sig = '';
+    return;
+  }
+  const dupes = planCloseDuplicates(snap.tabs).actions[0]?.tabIds.length ?? 0;
+  const ages = countByAge(snap.tabs);
+  const age = [14, 7, 30, 90].map((d) => ages.find((a) => a.days === d)).find((a) => a.count >= 10);
+  const sig = JSON.stringify([snap.total, dupes, age?.days, age?.count, state.busy]);
+  if (els.hint.dataset.sig === sig && !els.hint.hidden) return;
+  els.hint.dataset.sig = sig;
+  const row = (iconName, text, onClick, tag) =>
+    h('button', { class: 'hint-row', type: 'button', disabled: state.busy, onClick }, icon(iconName, 16), h('span', { class: 'hint-text' }, text), tag ? h('small', null, tag) : null, icon('chevronRight', 14));
+  els.hint.replaceChildren(
+    h('div', { class: 'hint-head' },
+      icon('layers', 18),
+      h('div', null, h('b', null, `This window has ${snap.total} tabs`), h('small', null, 'That is a lot to keep open. A few ways to make it lighter:')),
+      h('button', { class: 'icon-btn small', type: 'button', title: 'Not now', 'aria-label': 'Hide these suggestions', onClick: () => dismissHint(snap.windowId) }, icon('x', 14)),
+    ),
+    age ? row('clock', `Archive ${age.count} tabs not used for ${age.label}`, () => run({ label: `Archive tabs not used for ${age.label}`, preset: preset('archive'), archiveDays: age.days }), 'On device') : null,
+    dupes ? row('copy', `Close ${dupes} duplicate tab${dupes === 1 ? '' : 's'}`, () => run({ label: 'Close duplicates', preset: preset('dupes') }), 'On device') : null,
+    row('sparkles', `Group all ${snap.tabs.length} tabs by topic`, () => run({ label: 'Group by topic', preset: preset('topic') }), 'AI'),
+    row('archive', 'Save the window as a session and clear it', () => showView('sessions'), 'On device'),
+  );
+  els.hint.hidden = false;
+}
+
+async function dismissHint(windowId) {
+  const all = (await chrome.storage.session.get(HINT_KEY))[HINT_KEY] ?? {};
+  await chrome.storage.session.set({ [HINT_KEY]: { ...all, [windowId]: true } });
+  els.hint.hidden = true;
 }
 
 /** One row per tab group, with direct controls. Both buttons produce a plan you can review and undo. */
@@ -291,7 +358,7 @@ function enterThread() {
   els.resetBtn.hidden = false;
   els.chips.hidden = false;
   els.chips.replaceChildren(
-    ...PRESETS.map((p) => h('button', { class: 'chip', type: 'button', onClick: () => run({ label: p.title, preset: p }) }, p.title)),
+    ...PRESETS.map((p) => h('button', { class: 'chip', type: 'button', onClick: () => run({ label: p.title, preset: p }) }, icon(p.icon, 13), p.title)),
   );
   // Remove the leftover "undo last session" banner, if any, once the user moves on.
   els.thread.querySelectorAll('[data-restored]').forEach((n) => n.remove());
@@ -315,17 +382,25 @@ function submitText() {
 
 function setBusy(busy) {
   state.busy = busy;
-  document.querySelectorAll('.preset, .chip, .group-row .btn').forEach((b) => (b.disabled = busy));
+  document.querySelectorAll('.preset, .chip, .group-row .btn, .hint-row, .age').forEach((b) => (b.disabled = busy));
   autosize();
 }
 
-async function run({ label, preset, instruction }) {
+async function run({ label, preset: chosen, instruction, archiveDays }) {
   if (state.busy) return;
+  // "Archive old tabs" first asks how old. Picking an age runs it again with archiveDays.
+  if (chosen?.archive && archiveDays === undefined) {
+    enterThread();
+    add(h('div', { class: 'me' }, label));
+    add(await archiveChooser());
+    return;
+  }
   setBusy(true);
   enterThread();
   add(h('div', { class: 'me' }, label));
 
   let thinking;
+  const stop = new AbortController();
   try {
     const snap = await snapshot({ includePinned: state.includePinned });
     if (snap.tabs.length === 0) {
@@ -334,33 +409,76 @@ async function run({ label, preset, instruction }) {
     }
 
     let raw;
-    if (preset?.local) {
-      raw = preset.local(snap.tabs);
+    if (archiveDays !== undefined) {
+      raw = planArchive(snap.tabs, { days: archiveDays });
+    } else if (chosen?.local) {
+      raw = chosen.local(snap.tabs);
     } else {
       const blocked = await aiBlocker();
       if (blocked) {
         add(blocked);
         return;
       }
-      thinking = add(thinkingCard());
-      raw = await planWithAI({ instruction: instruction ?? preset.prompt, tabs: toApiTabs(snap) }, state.ai);
+      const n = snap.tabs.length;
+      let progress;
+      if (n > SINGLE_PLAN_MAX) {
+        // Big windows are planned in parts, which takes a little while, so show how far it is and allow stopping.
+        progress = progressView({ title: `Reading ${n} tabs`, detail: 'Planning them in parts…', iconName: 'sparkles', onStop: () => stop.abort() });
+        thinking = add(progress.node);
+      } else {
+        thinking = add(thinkingCard());
+      }
+      raw = await planWithAI({ instruction: instruction ?? chosen.prompt, tabs: toApiTabs(snap) }, state.ai, {
+        signal: stop.signal,
+        onProgress: (p) =>
+          progress?.set(p.stage === 'merge'
+            ? { title: 'Putting it together', detail: 'Merging groups that mean the same thing…', done: 1, total: 1 }
+            : { detail: `${p.done} of ${p.total} parts planned`, done: p.done, total: p.total }),
+      });
       if (state.ai.provider === 'server' && state.health !== 'outdated') setHealth('ok');
     }
     thinking?.remove();
 
     const plan = sanitizePlan(raw, snap.byId);
+    plan.notes = (Array.isArray(raw?.notes) ? raw.notes : []).map((n) => clean(n, 240)).filter(Boolean);
     if (plan.actions.length === 0) {
       add(h('div', { class: 'bot-text' }, plan.message || raw?.message || 'Nothing to do for that request.'));
       return;
     }
-    add(planCard(plan, snap, { label, preset, instruction }));
+    add(planCard(plan, snap, { label, preset: chosen, instruction, archiveDays }));
   } catch (err) {
     thinking?.remove();
-    add(errorCard(err, { label, preset, instruction }));
+    if (err?.code === 'aborted') {
+      add(h('div', { class: 'bot-text' }, 'Stopped. Nothing was changed.'));
+      return;
+    }
+    add(errorCard(err, { label, preset: chosen, instruction, archiveDays }));
     if (err instanceof ApiError && (err.code === 'offline' || err.code === 'no_key')) refreshHealth();
   } finally {
     setBusy(false);
   }
+}
+
+/** "Archive old tabs": pick how long a tab must have gone unused. Each choice shows how many tabs it takes. */
+async function archiveChooser() {
+  const snap = await snapshot({ includePinned: state.includePinned });
+  if (!knowsLastUse(snap.tabs)) return h('div', { class: 'bot-text' }, planArchive(snap.tabs, { days: 7 }).message);
+  const ages = countByAge(snap.tabs);
+  return h('section', { class: 'card chooser' },
+    h('div', { class: 'card-head' },
+      h('div', { class: 'title' }, icon('clock', 16), 'Archive tabs you have not used for…'),
+      h('p', null, 'They are saved as a session first, then closed. Reopen them from Sessions whenever you like.'),
+    ),
+    h('div', { class: 'age-grid' },
+      ages.map((a) =>
+        h('button', {
+          class: 'age', type: 'button', disabled: a.count === 0 || state.busy,
+          onClick: () => run({ label: `Not used for ${a.label}`, preset: preset('archive'), archiveDays: a.days }),
+        }, h('b', null, a.label), h('span', null, a.count ? `${a.count} tab${a.count === 1 ? '' : 's'}` : 'none')),
+      ),
+    ),
+    h('p', { class: 'fine' }, 'Based on when you last switched to each tab. The tab you are on and tabs playing sound are never archived.'),
+  );
 }
 
 function thinkingCard() {
@@ -383,10 +501,12 @@ function planCard(plan, snap, again) {
 
   const activeItems = () => items.filter((i) => i.enabled && i.tabIds.length > 0);
   const closeCount = () => new Set(activeItems().filter((i) => i.type === 'close').flatMap((i) => i.tabIds)).size;
+  const archiveCount = () => new Set(activeItems().filter((i) => i.type === 'archive').flatMap((i) => i.tabIds)).size;
 
   function render() {
     const active = activeItems();
     const closing = closeCount();
+    const archiving = archiveCount();
     const list = h('ul', { class: 'actions' }, items.map((item, idx) => actionRow(item, idx)));
     const apply = h('button', {
       class: 'btn primary', type: 'button', disabled: active.length === 0 || applying,
@@ -398,10 +518,12 @@ function planCard(plan, snap, again) {
         h('div', { class: 'card-head' },
           h('div', { class: 'title' }, icon('sparkles', 16), 'Here is my plan'),
           h('p', null, plan.summary || describeActions(active)),
+          plan.notes?.length ? h('ul', { class: 'plan-notes' }, plan.notes.map((n) => h('li', null, n))) : null,
         ),
         list,
         // replaceChildren turns null into the text "null", so optional parts are filtered out.
         closing ? h('div', { class: 'warn' }, icon('alert', 16), `Closes ${closing} tab${closing === 1 ? '' : 's'}. You can undo it afterwards.`) : null,
+        archiving ? h('div', { class: 'info' }, icon('archive', 16), `Saves ${archiving} tab${archiving === 1 ? '' : 's'} to Sessions, then closes ${archiving === 1 ? 'it' : 'them'}. You can undo it.`) : null,
         notice ? h('div', { class: 'warn', role: 'alert' }, icon('alert', 16), notice) : null,
         h('div', { class: 'card-foot' }, apply, h('button', { class: 'btn ghost', type: 'button', disabled: applying, onClick: () => card.remove() }, 'Dismiss')),
       ].filter(Boolean),
@@ -416,8 +538,9 @@ function planCard(plan, snap, again) {
       : item.type === 'ungroup' ? [h('span', { class: 'name' }, `Ungroup ${n} tab${n === 1 ? '' : 's'}`)]
       : item.type === 'close' ? [h('span', { class: 'name' }, `Close ${n} tab${n === 1 ? '' : 's'}`)]
       : item.type === 'move_to_new_window' ? [h('span', { class: 'name' }, 'Move to a new window')]
+      : item.type === 'archive' ? [h('span', { class: 'name' }, `Archive as “${item.name}”`)]
       : [h('span', { class: 'name' }, `Bookmark to “${item.folder}”`)];
-    const iconName = { group: 'group', ungroup: 'ungroup', close: 'x', move_to_new_window: 'window', bookmark: 'bookmark' }[item.type];
+    const iconName = { group: 'group', ungroup: 'ungroup', close: 'x', move_to_new_window: 'window', bookmark: 'bookmark', archive: 'clock' }[item.type];
     const from = item.type === 'ungroup' ? `from ${groupNamesOf(item)}` : null;
     const sub = [`${n} tab${n === 1 ? '' : 's'}`, from, item.reason].filter(Boolean).join(' · ');
     const enabled = item.enabled && !dead;
@@ -448,9 +571,11 @@ function planCard(plan, snap, again) {
   function tabRow(item, id) {
     const tab = snap.byId.get(id);
     const fav = h('img', { class: 'fav', alt: '', src: tab?.favIconUrl || null, referrerpolicy: 'no-referrer', onError: (e) => e.target.removeAttribute('src') });
+    const when = item.type === 'archive' && tab?.lastAccessed ? h('span', { class: 'tab-when' }, ago(tab.lastAccessed)) : null;
     return h('li', { class: 'tab-item', title: tab?.url ?? '' },
       fav,
       h('span', { class: 'tab-title' }, tab?.title ?? `Tab ${id}`),
+      when,
       h('button', {
         class: 'tab-remove', type: 'button', 'aria-label': `Leave out ${tab?.title ?? 'tab'}`,
         onClick: () => { item.tabIds = item.tabIds.filter((t) => t !== id); render(); },
@@ -492,15 +617,22 @@ function resultCard(result, { restored = false } = {}) {
   const text = h('div', { class: 'text' }, h('b', null, describeResult(result)), result.notes?.length ? h('small', null, result.notes.join(' ')) : null);
   const node = h('div', { class: 'result', 'data-restored': restored ? '' : null }, icon('check', 20), text);
 
+  if (result.stats?.archived && !restored) {
+    node.append(h('button', { class: 'btn', type: 'button', onClick: () => showView('sessions') }, icon('archive', 15), 'Sessions'));
+  }
   if (undoable) {
     const btn = h('button', { class: 'btn', type: 'button' }, icon('undo', 15), 'Undo');
     btn.addEventListener('click', async () => {
       btn.disabled = true;
+      // Reopening many tabs takes a moment, because they open without loading. Show how far it is.
+      const many = tabsToReopen(result.undo) >= LIGHT_OPEN_FROM;
+      const progress = many ? progressView({ title: 'Undoing', detail: 'Reopening tabs…', iconName: 'undo' }) : null;
+      if (progress) node.replaceChildren(progress.node);
       try {
-        await undoPlan(result.undo);
+        await undoPlan(result.undo, { onProgress: (p) => progress?.set({ detail: `Reopened ${p.done} of ${p.total} tabs`, done: p.done, total: p.total }) });
         await chrome.storage.session.remove(UNDO_KEY);
         node.classList.add('undone');
-        node.replaceChildren(icon('undo', 20), h('div', { class: 'text' }, h('b', null, 'Undone'), h('small', null, 'Your tabs are back as they were.')));
+        node.replaceChildren(icon('undo', 20), h('div', { class: 'text' }, h('b', null, 'Undone'), h('small', null, many ? 'Your tabs are back. They load when you click them.' : 'Your tabs are back as they were.')));
       } catch {
         btn.disabled = false;
       }

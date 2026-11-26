@@ -11,6 +11,8 @@
 //    the last real tab cannot empty a session.
 //  - Syncing only replaces tabs and groups. It never touches the name, and it never
 //    recreates a session that was deleted.
+//  - A tab that is not loaded (opened lightly, or unloaded by Chrome to save memory) shows its
+//    address instead of its title and has no icon. The session keeps the title and icon it had.
 
 import { buildSession, updateSessionContent, withLock } from './sessions.js';
 
@@ -91,7 +93,7 @@ export async function syncWindow(windowId) {
   const [tabs, groupList] = await Promise.all([chrome.tabs.query({ windowId }), chrome.tabGroups.query({ windowId })]);
   const built = buildSession({
     name: 'x',
-    tabs: tabs.map((t) => ({ id: t.id, url: t.url || t.pendingUrl || '', title: t.title, favIconUrl: t.favIconUrl, pinned: t.pinned, groupId: t.groupId })),
+    tabs: tabs.map((t) => ({ id: t.id, url: t.url || t.pendingUrl || '', title: t.title, favIconUrl: t.favIconUrl, pinned: t.pinned, groupId: t.groupId, lastAccessed: t.lastAccessed })),
     groups: new Map(groupList.map((g) => [g.id, { title: g.title ?? '', color: g.color, collapsed: Boolean(g.collapsed) }])),
   });
   if (built.tabs.length === 0) return 'skipped-empty';

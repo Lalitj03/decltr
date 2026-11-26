@@ -3,6 +3,7 @@
 // this browser profile. Nothing here is sent to the Decltr server or to Gemini.
 
 import { clean } from './plan.js';
+import { openTabsLightly, weakTitle } from './light-open.js';
 
 // Each session is stored under its own key, so an automatic update rewrites one session
 // instead of all of them. LEGACY_KEY held every session in one array and is migrated.
@@ -15,6 +16,10 @@ const NAME_SOURCES = ['default', 'user', 'ai'];
 export const MAX_NAME = 60;
 const MAX_URL = 8192;
 const MAX_SESSIONS = 200;
+const MAX_TABS_PER_SESSION = 5000;
+const KINDS = ['archive']; // a session made by "Archive old tabs"; anything else is a normal session
+/** When a tab was last used, as Chrome reports it, or undefined when unknown. */
+const usedAt = (v) => (Number.isFinite(v) && v > 0 ? Math.round(v) : undefined);
 const GROUP_COLORS = ['grey', 'blue', 'red', 'yellow', 'green', 'pink', 'purple', 'cyan', 'orange'];
 
 const attempt = async (fn, fallback = null) => {
@@ -51,7 +56,7 @@ export function defaultSessionName(now = new Date()) {
  * Build a session from window tabs. `groups` maps groupId -> {title, color, collapsed}.
  * Groups are stored by position so they survive being restored with new IDs.
  */
-export function buildSession({ name, nameSource, tabs, groups, now = Date.now(), id = crypto.randomUUID() }) {
+export function buildSession({ name, nameSource, tabs, groups, kind, now = Date.now(), id = crypto.randomUUID() }) {
   const kept = saveableTabs(tabs);
   const groupIndex = new Map();
   const outGroups = [];
@@ -71,6 +76,7 @@ export function buildSession({ name, nameSource, tabs, groups, now = Date.now(),
       favIcon: /^https?:\/\//i.test(t.favIconUrl ?? '') && t.favIconUrl.length <= 300 ? t.favIconUrl : '',
       pinned: Boolean(t.pinned),
       g: t.pinned ? -1 : g,
+      ...(usedAt(t.lastAccessed) ? { used: usedAt(t.lastAccessed) } : {}),
     };
   });
   const given = clean(name, MAX_NAME);
@@ -78,6 +84,7 @@ export function buildSession({ name, nameSource, tabs, groups, now = Date.now(),
     id,
     name: given || defaultSessionName(new Date(now)),
     nameSource: given ? (nameSource ?? 'user') : 'default',
+    ...(KINDS.includes(kind) ? { kind } : {}),
     createdAt: now,
     updatedAt: now,
     tabs: outTabs,
@@ -98,19 +105,21 @@ export function sanitizeSessions(raw) {
     }));
     const tabs = s.tabs
       .filter((t) => t && isRestorableUrl(t.url))
-      .slice(0, 2000)
+      .slice(0, MAX_TABS_PER_SESSION)
       .map((t) => ({
         url: t.url,
         title: clean(t.title, 120),
         favIcon: typeof t.favIcon === 'string' && /^https?:\/\//i.test(t.favIcon) && t.favIcon.length <= 300 ? t.favIcon : '',
         pinned: Boolean(t.pinned),
         g: Number.isInteger(t.g) && t.g >= 0 && t.g < groups.length && !t.pinned ? t.g : -1,
+        ...(usedAt(t.used) ? { used: usedAt(t.used) } : {}),
       }));
     if (tabs.length === 0) continue;
     out.push({
       id: s.id,
       name: clean(s.name, MAX_NAME) || 'Untitled session',
       nameSource: NAME_SOURCES.includes(s.nameSource) ? s.nameSource : 'user',
+      ...(KINDS.includes(s.kind) ? { kind: s.kind } : {}),
       createdAt: Number(s.createdAt) || 0,
       updatedAt: Number(s.updatedAt) || Number(s.createdAt) || 0,
       tabs,
@@ -222,10 +231,30 @@ export const updateSessionContent = (id, { tabs, groups }) =>
   locked(async () => {
     const session = await readOne(id);
     if (!session) return 'missing';
-    if (JSON.stringify([session.tabs, session.groups]) === JSON.stringify([tabs, groups])) return 'unchanged';
-    await chrome.storage.local.set({ [keyOf(id)]: { ...session, tabs, groups, updatedAt: Date.now() } });
+    const next = keepKnownDetails(tabs, session.tabs);
+    const strip = (list) => JSON.stringify(list.map(({ used, ...t }) => t)); // a tab being looked at is not a change worth a write
+    if (strip(session.tabs) === strip(next) && JSON.stringify(session.groups) === JSON.stringify(groups)) return 'unchanged';
+    await chrome.storage.local.set({ [keyOf(id)]: { ...session, tabs: next, groups, updatedAt: Date.now() } });
     return 'updated';
   });
+
+/**
+ * A tab that is not loaded shows only its address as its title, has no icon, and may not know when it
+ * was last used. Syncing must not overwrite what the session already knew about that page with less.
+ */
+export function keepKnownDetails(tabs, known) {
+  const byUrl = new Map();
+  for (const t of known) if (!byUrl.has(t.url)) byUrl.set(t.url, t);
+  return tabs.map((t) => {
+    const old = byUrl.get(t.url);
+    if (!old) return t;
+    const out = { ...t };
+    if (weakTitle(t.title, t.url) && old.title && !weakTitle(old.title, old.url)) out.title = old.title;
+    if (!t.favIcon && old.favIcon) out.favIcon = old.favIcon;
+    if (!t.used && old.used) out.used = old.used;
+    return out;
+  });
+}
 
 // ---- opening ---------------------------------------------------------------
 
@@ -235,8 +264,12 @@ const tabUrl = (t) => t.url || t.pendingUrl || '';
  * Open a session. target "new" uses a fresh window, "here" appends to `windowId`.
  * A window that only holds blank tabs (for example right after Save & clear) has
  * them removed afterwards, so you do not end up with a stray empty tab.
+ *
+ * Big sessions open lightly (see light-open.js): every tab appears at once, but only the tab you land on
+ * and pinned tabs load; the rest load when clicked. `onProgress({ done, total })` reports progress and
+ * `signal` stops before the next tab, keeping what has opened (`stopped` is then true).
  */
-export async function openSession(session, { target, windowId }) {
+export async function openSession(session, { target, windowId, signal, onProgress, light } = {}) {
   let targetWindowId = windowId;
   const newWindow = target === 'new';
   if (newWindow) targetWindowId = (await chrome.windows.create({ focused: true })).id;
@@ -249,21 +282,23 @@ export async function openSession(session, { target, windowId }) {
 
   const created = new Array(session.tabs.length).fill(null);
   const failed = [];
-  for (let i = 0; i < session.tabs.length; i++) {
-    const t = session.tabs[i];
-    if (!isRestorableUrl(t.url)) {
-      failed.push(t.url);
-      continue;
-    }
-    const tab = await attempt(() => chrome.tabs.create({ windowId: targetWindowId, url: t.url, active: false, pinned: t.pinned }));
-    if (tab) created[i] = tab.id;
-    else failed.push(t.url);
-  }
+  const order = []; // positions in the session that can be opened
+  session.tabs.forEach((t, i) => (isRestorableUrl(t.url) ? order.push(i) : failed.push(t.url)));
+  const opened = await openTabsLightly(order.map((i) => ({ url: session.tabs[i].url, pinned: session.tabs[i].pinned })), {
+    windowId: targetWindowId,
+    keepLoaded: (k) => k === 0, // the tab you land on
+    ...(light === undefined ? {} : { light }),
+    signal,
+    onProgress,
+  });
+  order.forEach((i, k) => (created[i] = opened.ids[k]));
+  opened.failed.forEach((k) => failed.push(session.tabs[order[k]].url));
   const createdIds = created.filter((id) => id !== null);
+  const base = { windowId: targetWindowId, newWindow, createdIds, failed, wasBlank, stopped: opened.stopped, unloaded: opened.unloaded };
 
   if (createdIds.length === 0) {
     if (newWindow) await attempt(() => chrome.windows.remove(targetWindowId));
-    return { windowId: targetWindowId, newWindow, createdIds, failed, removedBlank: 0, wasBlank };
+    return { ...base, removedBlank: 0 };
   }
 
   // Rebuild groups.
@@ -280,7 +315,48 @@ export async function openSession(session, { target, windowId }) {
 
   await attempt(() => chrome.tabs.update(activeId, { active: true }));
   if (blankIds.length) await attempt(() => chrome.tabs.remove(blankIds));
-  return { windowId: targetWindowId, newWindow, createdIds, failed, removedBlank: blankIds.length, wasBlank };
+  return { ...base, removedBlank: blankIds.length };
+}
+
+// ---- opening part of a session ---------------------------------------------
+
+/** True when the session knows when its tabs were last used (sessions saved before this was recorded do not). */
+export const knowsLastUse = (session) => session.tabs.some((t) => t.used);
+
+/**
+ * The positions of the `count` most recently used tabs (`newest`), or the `count` least recently used,
+ * returned in session order. Tabs whose last use is unknown count as the oldest.
+ */
+export function pickByLastUse(session, { count, newest = true }) {
+  const ranked = session.tabs.map((t, i) => ({ i, used: t.used ?? 0 }))
+    .sort((a, b) => (newest ? b.used - a.used : a.used - b.used) || a.i - b.i);
+  return ranked.slice(0, Math.max(0, count)).map((r) => r.i).sort((a, b) => a - b);
+}
+
+/** The positions of the tabs in the given groups (indexes into session.groups; -1 means ungrouped tabs). */
+export function pickByGroups(session, groupIndexes) {
+  const wanted = new Set(groupIndexes);
+  return session.tabs.map((t, i) => (wanted.has(t.g) ? i : null)).filter((i) => i !== null);
+}
+
+/**
+ * A copy of the session holding only the tabs at `positions`, with its groups renumbered.
+ * Opening it opens just those tabs, with their groups.
+ */
+export function partOfSession(session, positions) {
+  const keep = [...new Set(positions)].filter((i) => Number.isInteger(i) && i >= 0 && i < session.tabs.length).sort((a, b) => a - b);
+  const groupMap = new Map();
+  const groups = [];
+  const tabs = keep.map((i) => {
+    const t = session.tabs[i];
+    if (t.g < 0) return { ...t };
+    if (!groupMap.has(t.g)) {
+      groupMap.set(t.g, groups.length);
+      groups.push({ ...session.groups[t.g] });
+    }
+    return { ...t, g: groupMap.get(t.g) };
+  });
+  return { ...session, tabs, groups };
 }
 
 /** Reverse openSession: close what it opened. */

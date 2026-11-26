@@ -43,6 +43,10 @@ const PATHS = {
   alert: '<path d="M12 4l9 16H3z"/><path d="M12 10v4M12 17.5v.01"/>',
   plug: '<path d="M9 3v5M15 3v5M6 8h12v3a6 6 0 01-12 0zM12 17v4"/>',
   key: '<circle cx="8" cy="15" r="4"/><path d="M11 12l9-9M16 7l3 3"/>',
+  clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+  stop: '<rect x="6.5" y="6.5" width="11" height="11" rx="2"/>',
+  layers: '<path d="M12 3l9 5-9 5-9-5z"/><path d="M3 13l9 5 9-5"/>',
+  chevronRight: '<path d="M9 6l6 6-6 6"/>',
 };
 
 export function icon(name, size = 18) {
@@ -51,4 +55,33 @@ export function icon(name, size = 18) {
   span.setAttribute('aria-hidden', 'true');
   span.innerHTML = `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${PATHS[name] ?? ''}</svg>`;
   return span;
+}
+
+/**
+ * A progress line for long jobs: a title, a detail line, a bar, and an optional Stop button.
+ * `set({ title, detail, done, total })` updates it; without `total` the bar shows activity instead.
+ */
+export function progressView({ title, detail = '', iconName = 'layers', onStop }) {
+  const titleEl = h('b', null, title);
+  const detailEl = h('small', null, detail);
+  const fill = h('span', { class: 'bar-fill' });
+  const bar = h('div', { class: 'bar indeterminate', role: 'progressbar', 'aria-label': title }, fill);
+  const stop = onStop ? h('button', { class: 'btn small', type: 'button', onClick: onStop }, icon('stop', 14), 'Stop') : null;
+  const node = h('div', { class: 'progress-card', role: 'status' }, icon(iconName, 18), h('div', { class: 'text' }, titleEl, detailEl, bar), stop);
+  return {
+    node,
+    stop,
+    set({ title: t, detail: d, done, total } = {}) {
+      if (t !== undefined) titleEl.textContent = t;
+      if (d !== undefined) detailEl.textContent = d;
+      if (Number.isFinite(done) && total > 0) {
+        bar.classList.remove('indeterminate');
+        const pct = Math.min(100, Math.round((done / total) * 100));
+        fill.style.width = `${pct}%`;
+        bar.setAttribute('aria-valuenow', String(pct));
+        bar.setAttribute('aria-valuemin', '0');
+        bar.setAttribute('aria-valuemax', '100');
+      }
+    },
+  };
 }

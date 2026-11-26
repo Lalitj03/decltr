@@ -74,7 +74,7 @@ function detail(json, text, secret) {
 export function googleBackend({ apiKey, model, thinkingBudget = 0, fetchImpl = fetch }) {
   return {
     name: 'Google Gemini',
-    async complete(task, { timeoutMs = TIMEOUTS.google } = {}) {
+    async complete(task, { timeoutMs = TIMEOUTS.google, signal } = {}) {
       return callGemini({
         apiKey,
         model,
@@ -82,6 +82,7 @@ export function googleBackend({ apiKey, model, thinkingBudget = 0, fetchImpl = f
         body: geminiBodyFromTask(task, { thinkingBudget }),
         fetchImpl,
         timeoutMs,
+        signal,
       });
     },
   };

@@ -12,11 +12,14 @@ const ENDPOINTS = {
  * Call Gemini's generateContent and return the parsed JSON the model produced.
  * The key is sent in a header (not the URL) and scrubbed from any error text.
  */
-export async function callGemini({ apiKey, model, body, provider = 'vertex', fetchImpl = fetch, timeoutMs = 45_000 }) {
+export async function callGemini({ apiKey, model, body, provider = 'vertex', fetchImpl = fetch, timeoutMs = 45_000, signal }) {
   const endpoint = ENDPOINTS[provider];
   if (!endpoint) throw new UpstreamError('bad_provider', `Unknown provider "${provider}".`, 500);
+  if (signal?.aborted) throw new UpstreamError('aborted', 'Stopped.', 499);
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
+  const onAbort = () => controller.abort();
+  signal?.addEventListener('abort', onAbort, { once: true });
 
   try {
     let res;
@@ -28,6 +31,7 @@ export async function callGemini({ apiKey, model, body, provider = 'vertex', fet
         signal: controller.signal,
       });
     } catch (err) {
+      if (signal?.aborted) throw new UpstreamError('aborted', 'Stopped.', 499);
       if (err?.name === 'AbortError') {
         throw new UpstreamError('upstream_timeout', 'Gemini took too long to respond. Try again.', 504);
       }
@@ -62,6 +66,7 @@ export async function callGemini({ apiKey, model, body, provider = 'vertex', fet
     }
   } finally {
     clearTimeout(timer);
+    signal?.removeEventListener('abort', onAbort);
   }
 }
 

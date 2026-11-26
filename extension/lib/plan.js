@@ -1,9 +1,9 @@
 // Pure plan logic: validation of server/model output, and the presets that run
 // entirely on-device. No chrome.* calls here so it can be unit tested in Node.
 
-export const ACTION_TYPES = ['group', 'ungroup', 'close', 'move_to_new_window', 'bookmark'];
+export const ACTION_TYPES = ['group', 'ungroup', 'close', 'move_to_new_window', 'bookmark', 'archive'];
 export const GROUP_COLORS = ['grey', 'blue', 'red', 'yellow', 'green', 'pink', 'purple', 'cyan', 'orange'];
-export const MAX_ACTIONS = 30;
+export const MAX_ACTIONS = 200; // a big window can have many groups, for example one per website
 
 const CONTROL_CHARS = /[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u2028-\u202e\u2066-\u2069]/g;
 
@@ -26,7 +26,7 @@ export function sanitizePlan(raw, liveById) {
     message: clean(raw?.message, 400),
     actions: [],
   };
-  const claimed = { group: new Set(), ungroup: new Set(), move_to_new_window: new Set() };
+  const claimed = { group: new Set(), ungroup: new Set(), move_to_new_window: new Set(), archive: new Set() };
   const list = Array.isArray(raw?.actions) ? raw.actions.slice(0, MAX_ACTIONS) : [];
 
   for (const a of list) {
@@ -49,6 +49,7 @@ export function sanitizePlan(raw, liveById) {
       action.color = GROUP_COLORS.includes(a.color) ? a.color : 'grey';
     }
     if (a.type === 'bookmark') action.folder = clean(a.folder, 60) || 'Saved tabs';
+    if (a.type === 'archive') action.name = clean(a.name, 60) || 'Archived tabs';
 
     if (claimed[a.type]) ids.forEach((id) => claimed[a.type].add(id));
     plan.actions.push(action);
@@ -70,6 +71,8 @@ export function describeActions(actions) {
   if (moves.length) parts.push(`Move ${tabs(count(moves))} to a new window`);
   const marks = n('bookmark');
   if (marks.length) parts.push(`Bookmark ${tabs(count(marks))}`);
+  const archives = n('archive');
+  if (archives.length) parts.push(`Archive ${tabs(count(archives))}`);
   const closes = n('close');
   if (closes.length) parts.push(`Close ${tabs(count(closes))}`);
   return parts.join(' · ');

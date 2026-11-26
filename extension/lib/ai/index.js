@@ -7,6 +7,7 @@ import { describeDestination, hasConsent, isConfigured, missingSetup, normalizeA
 import { UpstreamError } from './errors.js';
 import { nameTask, normalizeName, normalizePlan, parsePlanRequest, planTask } from './core.js';
 import { cleanText } from './core.js';
+import { planInParts, SINGLE_PLAN_MAX } from './parts.js';
 
 export function createBackend(config, { fetchImpl = fetch } = {}) {
   const c = normalizeAiConfig(config);
@@ -24,17 +25,28 @@ export function createBackend(config, { fetchImpl = fetch } = {}) {
   }
 }
 
+// How many parts of a big window are planned at the same time. The optional server works on two requests
+// at once, and a local Ollama model works on one at a time anyway.
+const PARTS_AT_ONCE = { server: 2, google: 4, openai: 3, ollama: 1 };
+
 /**
  * Ask for a plan. `tabs` are the panel's tabs ({ id, title, url, group?, active?, audible? }).
  * The result has real tab IDs. Nothing the model says is trusted: IDs it invents are dropped.
+ * A window with more than SINGLE_PLAN_MAX tabs is planned in parts (see parts.js), reporting
+ * progress through `onProgress`. `signal` stops it.
  */
-export async function planWithAI({ instruction, tabs }, config, { fetchImpl } = {}) {
+export async function planWithAI({ instruction, tabs }, config, { fetchImpl, onProgress, signal } = {}) {
   const c = normalizeAiConfig(config);
-  if (c.provider === 'server') return (await requestPlan({ instruction, tabs })).plan;
+  const once = (request) => planOnce(request, c, { fetchImpl, signal });
+  if (tabs.length <= SINGLE_PLAN_MAX) return once({ instruction, tabs });
+  return planInParts({ instruction, tabs }, once, { concurrency: PARTS_AT_ONCE[c.provider] ?? 2, onProgress, signal });
+}
 
+async function planOnce({ instruction, tabs }, c, { fetchImpl, signal }) {
+  if (c.provider === 'server') return (await requestPlan({ instruction, tabs }, { signal })).plan;
   // Tabs are cleaned here, before anything leaves the browser: no query strings, no fragments, capped lengths.
   const request = parsePlanRequest({ instruction, tabs });
-  const raw = await createBackend(c, { fetchImpl }).complete(planTask(request));
+  const raw = await createBackend(c, { fetchImpl }).complete(planTask(request), { signal });
   const plan = normalizePlan(raw, request.tabs);
   plan.rawMessage = cleanText(raw?.message, 400);
   return plan;

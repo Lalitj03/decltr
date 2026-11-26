@@ -20,9 +20,24 @@ const base = [
   { url: 'chrome://extensions/', title: 'Extensions' },
 ];
 const extra = Array.from({ length: 24 }, (_, i) => ({ url: `https://news.example.com/story/${i}`, title: `Headline number ${i + 1}: something happened today` }));
-const tabs = q.get('tabs') === 'many' ? [...base, ...extra] : base;
+// tabs=huge: a window like the one that failed, hundreds of tabs used at very different times (&n=650).
+const DAY = 86_400_000;
+const topicsHuge = [
+  ['github.com/acme/web/pull/', 'Fix rendering bug · Pull Request #'], ['www.booking.com/hotel/pt/', 'Alfama hotel Lisbon | Booking.com '],
+  ['www.seriouseats.com/', 'The Best Garlic Pasta Recipe '], ['arxiv.org/abs/2411.', 'Efficient attention for long context '],
+  ['www.youtube.com/watch?v=', 'Live at Glastonbury (Full Set) '], ['www.irs.gov/forms-pubs/', 'About Form 1040 | IRS '],
+  ['www.amazon.com/dp/B0', 'Laptop 14-inch, 32GB RAM '], ['kubernetes.io/docs/concepts/', 'Pods | Kubernetes '],
+];
+const huge = Array.from({ length: Number(q.get('n') ?? 650) }, (_, i) => {
+  const [path, title] = topicsHuge[(i * 7 + Math.floor(i / 5)) % topicsHuge.length];
+  const age = [0.2, 1, 3, 9, 16, 25, 40, 75, 120, 200][(i * 13) % 10] * DAY;
+  return { url: `https://${path}${1000 + (i % 600)}`, title: `${title}${i % 600}`, lastAccessed: Date.now() - age - i * 1000 };
+});
+huge[0] = { ...huge[0], active: true, lastAccessed: Date.now() };
+const lastUsed = (t, i) => ({ ...t, lastAccessed: Date.now() - [0, 2, 9, 20, 40, 100][i % 6] * DAY });
+const tabs = q.get('tabs') === 'many' ? [...base, ...extra].map(lastUsed) : q.get('tabs') === 'huge' ? huge : base.map(lastUsed);
 
-globalThis.chrome = createMockChrome({ tabs });
+globalThis.chrome = createMockChrome({ tabs, loading: { commitMs: 30, titleMs: 60 } });
 globalThis.__mock = globalThis.chrome;
 
 const topics = [

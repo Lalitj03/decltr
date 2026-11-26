@@ -1,4 +1,5 @@
-export const MAX_TABS = 300;
+// On-device actions work on every tab. A window too big for one AI request is planned in parts (ai/parts.js).
+export const MAX_TABS = 5000;
 
 /** Read the tabs and groups of the window this panel belongs to. */
 export async function snapshot({ includePinned = false, limit = MAX_TABS } = {}) {
@@ -19,6 +20,8 @@ export async function snapshot({ includePinned = false, limit = MAX_TABS } = {})
     active: Boolean(t.active),
     audible: Boolean(t.audible),
     groupId: t.groupId ?? -1,
+    discarded: Boolean(t.discarded),
+    lastAccessed: Number.isFinite(t.lastAccessed) ? t.lastAccessed : undefined, // Chrome 121+
   }));
   return {
     windowId: win.id,

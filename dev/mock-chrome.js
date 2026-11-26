@@ -1,7 +1,12 @@
 // A small in-memory model of the chrome.* APIs Decltr uses. It mirrors the
 // behaviors that matter: window order, contiguous groups, a window closing when
 // its last tab leaves, groups vanishing when empty, and the events Chrome fires
-// (including isWindowClosing on tab removal).
+// (including isWindowClosing on tab removal), when each tab was last used, and unloading
+// (discarding) a tab, which gives it a new ID the way Chrome does.
+//
+// With `loading: { commitMs, titleMs, title }` new tabs load like real pages: first only a pending
+// address, then the address (and the address as the title), then the real title. Unloading a tab
+// before its address is known erases the address, as it does in Chrome.
 // Used by the unit tests and by the browser UI preview (dev/serve.mjs).
 
 const makeEvent = () => {
@@ -13,7 +18,7 @@ const makeEvent = () => {
   };
 };
 
-export function createMockChrome({ tabs: seed = [], groups: seedGroups = [], bookmarks: seedBookmarks = true } = {}) {
+export function createMockChrome({ tabs: seed = [], groups: seedGroups = [], bookmarks: seedBookmarks = true, loading = null, now = () => Date.now() } = {}) {
   let nextTabId = 1000;
   let nextGroupId = 1;
   let nextWindowId = 2;
@@ -22,7 +27,7 @@ export function createMockChrome({ tabs: seed = [], groups: seedGroups = [], boo
   const state = { windows: new Set([1]), tabs: [], groups: new Map(), storage: { local: {}, session: {} }, focusedWindow: 1 };
   const ev = {
     tabsCreated: makeEvent(), tabsRemoved: makeEvent(), tabsUpdated: makeEvent(), tabsMoved: makeEvent(),
-    tabsAttached: makeEvent(), tabsDetached: makeEvent(),
+    tabsAttached: makeEvent(), tabsDetached: makeEvent(), tabsReplaced: makeEvent(),
     groupsCreated: makeEvent(), groupsUpdated: makeEvent(), groupsRemoved: makeEvent(), groupsMoved: makeEvent(),
     windowsRemoved: makeEvent(), storageChanged: makeEvent(),
   };
@@ -38,6 +43,7 @@ export function createMockChrome({ tabs: seed = [], groups: seedGroups = [], boo
     state.tabs.push({
       id, windowId: t.windowId ?? 1, index: 0, url: t.url, title: t.title ?? t.url, pinned: Boolean(t.pinned),
       active: Boolean(t.active), audible: Boolean(t.audible), groupId: t.groupId ?? -1, favIconUrl: t.favIconUrl ?? '',
+      status: 'complete', discarded: Boolean(t.discarded), ...(t.lastAccessed !== undefined ? { lastAccessed: t.lastAccessed } : {}),
     });
   }
 
@@ -49,6 +55,29 @@ export function createMockChrome({ tabs: seed = [], groups: seedGroups = [], boo
     if (!t) throw new Error(`No tab with id: ${id}.`);
     return t;
   };
+
+  const stripScheme = (url) => String(url).replace(/^[a-z][a-z0-9+.-]*:\/\//i, '');
+  /** Make a new tab load like a page: pending address, then the address, then its title. */
+  function startLoading(tab, url) {
+    if (!loading) return;
+    Object.assign(tab, { url: '', pendingUrl: url, title: '', status: 'loading' });
+    const { commitMs = 5, titleMs = 10, title = (u) => `Title of ${u}` } = loading;
+    const id = tab.id;
+    const live = () => state.tabs.find((x) => x.id === id && x.pendingUrl === url && !x.discarded);
+    setTimeout(() => {
+      const t = live();
+      if (!t) return;
+      Object.assign(t, { url, pendingUrl: undefined, title: stripScheme(url) });
+      fire(ev.tabsUpdated, id, { url, title: t.title }, copy(t));
+    }, commitMs);
+    if (titleMs === Infinity) return; // a page that never sends a title
+    setTimeout(() => {
+      const t = state.tabs.find((x) => x.id === id && x.url === url && !x.discarded);
+      if (!t) return;
+      Object.assign(t, { title: title(url), status: 'complete' });
+      fire(ev.tabsUpdated, id, { title: t.title, status: 'complete' }, copy(t));
+    }, Math.max(titleMs, commitMs + 1));
+  }
 
   /** Re-number tabs, drop empty groups and (non-primary) empty windows, firing the matching events. */
   const reindex = () => {
@@ -126,7 +155,7 @@ export function createMockChrome({ tabs: seed = [], groups: seedGroups = [], boo
         } else {
           created = {
             id: nextTabId++, windowId: id, index: 0, url: url ?? 'chrome://newtab/', title: url ?? 'New Tab',
-            pinned: false, active: true, audible: false, groupId: -1, favIconUrl: '',
+            pinned: false, active: true, audible: false, groupId: -1, favIconUrl: '', status: 'complete', discarded: false, lastAccessed: now(),
           };
           state.tabs.push(created);
           place([created], id, 0);
@@ -157,20 +186,35 @@ export function createMockChrome({ tabs: seed = [], groups: seedGroups = [], boo
         if (props.active) {
           state.tabs.filter((x) => x.windowId === t.windowId).forEach((x) => (x.active = false));
           t.active = true;
+          t.lastAccessed = now();
+          if (t.discarded) Object.assign(t, { discarded: false, status: 'complete' }); // showing a tab loads it again
         }
         if (Object.keys(changed).length) fire(ev.tabsUpdated, id, changed, copy(t));
         return copy(t);
       },
       create: async ({ windowId = 1, url = 'chrome://newtab/', index, active = true, pinned = false }) => {
         if (!state.windows.has(windowId)) throw new Error(`No window with id: ${windowId}.`);
-        const t = { id: nextTabId++, windowId, index: 0, url, title: url, pinned, active, audible: false, groupId: -1, favIconUrl: '' };
+        const t = { id: nextTabId++, windowId, index: 0, url, title: url, pinned, active, audible: false, groupId: -1, favIconUrl: '', status: 'complete', discarded: false, lastAccessed: now() };
+        if (active) state.tabs.filter((x) => x.windowId === windowId).forEach((x) => (x.active = false));
         state.tabs.push(t);
         place([t], windowId, index ?? -1);
+        startLoading(t, url);
         fire(ev.tabsCreated, copy(t));
         return copy(t);
       },
       remove: async (v) => {
         removeTabs(ids(v).map(need));
+      },
+      /** Unload a tab. Like Chrome: the active tab is not unloaded, and the unloaded tab gets a new ID. */
+      discard: async (id) => {
+        const t = need(id);
+        if (t.active) return undefined;
+        const replacement = { ...t, id: nextTabId++, discarded: true, status: 'unloaded' };
+        if (t.pendingUrl) Object.assign(replacement, { url: '', pendingUrl: undefined, title: '' }); // unloaded before it started: the address is gone
+        state.tabs[state.tabs.indexOf(t)] = replacement;
+        state.discards = (state.discards ?? 0) + 1;
+        fire(ev.tabsReplaced, replacement.id, t.id);
+        return copy(replacement);
       },
       move: async (v, { windowId, index }) => {
         const moving = ids(v).map(need);
@@ -226,6 +270,7 @@ export function createMockChrome({ tabs: seed = [], groups: seedGroups = [], boo
       onMoved: ev.tabsMoved,
       onAttached: ev.tabsAttached,
       onDetached: ev.tabsDetached,
+      onReplaced: ev.tabsReplaced,
     },
     tabGroups: {
       query: async ({ windowId } = {}) => [...state.groups.values()].filter((g) => windowId === undefined || g.windowId === windowId).map(copy),

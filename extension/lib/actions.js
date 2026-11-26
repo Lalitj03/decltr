@@ -2,6 +2,8 @@
 // Every step is best-effort: one failing tab never aborts the rest.
 
 import { isBookmarkable } from './plan.js';
+import { openTabsLightly } from './light-open.js';
+import { buildSession, deleteSession, saveableTabs, saveSession } from './sessions.js';
 
 const ROOT_FOLDER = 'Decltr';
 const LEGACY_ROOT_FOLDER = 'Declt'; // the folder name before the product was renamed
@@ -35,6 +37,9 @@ const snapshotOf = (tabs, info) =>
 
 const tabWord = (n) => `${n} tab${n === 1 ? '' : 's'}`;
 
+/** How many tabs a plan's undo would reopen. Big numbers reopen lightly and take a while. */
+export const tabsToReopen = (undo) => (undo?.steps ?? []).filter((s) => s.type === 'reopen').reduce((n, s) => n + s.closed.length, 0);
+
 /** True when a plan saves bookmarks, which needs the optional "bookmarks" permission. */
 export const needsBookmarks = (plan) => (plan?.actions ?? []).some((a) => a.type === 'bookmark');
 
@@ -45,7 +50,7 @@ export async function applyPlan(plan, { windowId }) {
     throw Object.assign(new Error('Decltr was not allowed to create bookmarks, so nothing was changed.'), { code: 'no_bookmarks' });
   }
   const steps = [];
-  const stats = { grouped: 0, ungrouped: 0, closed: 0, moved: 0, bookmarked: 0, skipped: 0 };
+  const stats = { grouped: 0, ungrouped: 0, closed: 0, moved: 0, bookmarked: 0, archived: 0, skipped: 0 };
   const notes = [];
   const ctx = { windowId, steps, stats, notes };
 
@@ -56,6 +61,7 @@ export async function applyPlan(plan, { windowId }) {
       else if (action.type === 'close') await doClose(action, ctx);
       else if (action.type === 'move_to_new_window') await doMove(action, ctx);
       else if (action.type === 'bookmark') await doBookmark(action, ctx);
+      else if (action.type === 'archive') await doArchive(action, ctx);
     } catch (err) {
       notes.push(`Could not finish "${action.type}": ${err?.message ?? 'unknown error'}`);
     }
@@ -170,35 +176,61 @@ async function doClose(action, ctx) {
   stats.closed += tabs.length;
 }
 
-async function undoReopen(step) {
-  const groupMap = new Map(); // old group id -> group id that holds the reopened tabs
-  const collapseAfter = new Set(); // rebuilt groups that were collapsed; collapsed once all their tabs are back
-  for (const c of [...step.closed].sort((a, b) => a.index - b.index)) {
-    if (!c.url) continue;
-    const tab = await attempt(() =>
-      chrome.tabs.create({ windowId: step.windowId, url: c.url, index: c.index, active: false, pinned: c.pinned }),
-    );
-    if (!tab || c.groupId === -1 || !c.group) continue;
+/**
+ * Reopen closed tabs where they were, and put them back in their groups. Many tabs reopen lightly
+ * (see light-open.js), so undoing a big close cannot use up the computer's memory.
+ */
+async function undoReopen(step, { onProgress } = {}) {
+  const closed = [...step.closed].filter((c) => c.url).sort((a, b) => a.index - b.index);
+  const { ids } = await openTabsLightly(closed.map((c) => ({ url: c.url, pinned: c.pinned, index: c.index })), { windowId: step.windowId, onProgress });
 
-    let target = groupMap.get(c.groupId);
-    if (target === undefined) {
-      const stillThere = await attempt(() => chrome.tabGroups.get(c.groupId));
-      target = stillThere ? c.groupId : null;
+  // Tabs that were in the same group go back together, once their IDs are final.
+  const byGroup = new Map();
+  closed.forEach((c, k) => {
+    if (ids[k] === null || c.groupId === -1 || !c.group) return;
+    if (!byGroup.has(c.groupId)) byGroup.set(c.groupId, { info: c.group, ids: [] });
+    byGroup.get(c.groupId).ids.push(ids[k]);
+  });
+  const collapseAfter = []; // rebuilt groups that were collapsed; collapsed once all their tabs are back
+  for (const [oldId, { info, ids: tabIds }] of byGroup) {
+    const stillThere = await attempt(() => chrome.tabGroups.get(oldId));
+    if (stillThere && stillThere.windowId === step.windowId) {
+      await attempt(() => chrome.tabs.group({ groupId: oldId, tabIds }));
+      continue;
     }
-    if (target !== null) {
-      await attempt(() => chrome.tabs.group({ groupId: target, tabIds: [tab.id] }));
-      groupMap.set(c.groupId, target);
-    } else {
-      const created = await attempt(() => chrome.tabs.group({ tabIds: [tab.id], createProperties: { windowId: step.windowId } }));
-      if (created !== null) {
-        await attempt(() => chrome.tabGroups.update(created, { title: c.group.title, color: c.group.color }));
-        groupMap.set(c.groupId, created);
-        if (c.group.collapsed) collapseAfter.add(created);
-      }
-    }
+    const created = await attempt(() => chrome.tabs.group({ tabIds, createProperties: { windowId: step.windowId } }));
+    if (created === null) continue;
+    await attempt(() => chrome.tabGroups.update(created, { title: info.title, color: info.color }));
+    if (info.collapsed) collapseAfter.push(created);
   }
   // Collapsing earlier would hide tabs that are still being added to the group.
   for (const groupId of collapseAfter) await attempt(() => chrome.tabGroups.update(groupId, { collapsed: true }));
+}
+
+// ---- archive: save as a session, then close ---------------------------------
+
+/**
+ * Save tabs as a session marked as an archive, then close them. A tab that is in use right now (active
+ * or playing sound) is left open, even if it was picked. Undo reopens the tabs and deletes the session.
+ */
+async function doArchive(action, ctx) {
+  const { windowId, steps, stats, notes } = ctx;
+  const live = (await liveTabs(action.tabIds, windowId)).filter((t) => !t.active && !t.audible);
+  const groups = new Map((await chrome.tabGroups.query({ windowId })).map((g) => [g.id, { title: g.title ?? '', color: g.color, collapsed: Boolean(g.collapsed) }]));
+  const tabs = saveableTabs(live.map((t) => ({
+    id: t.id, url: t.url || t.pendingUrl || '', title: t.title, favIconUrl: t.favIconUrl, pinned: t.pinned, groupId: t.groupId, lastAccessed: t.lastAccessed,
+  })));
+  stats.skipped += action.tabIds.length - tabs.length;
+  if (tabs.length === 0) return;
+
+  const session = buildSession({ name: action.name, nameSource: 'user', kind: 'archive', tabs, groups });
+  await saveSession(session);
+  steps.push({ type: 'unsave', sessionId: session.id });
+  const before = stats.closed;
+  await doClose({ type: 'close', tabIds: tabs.map((t) => t.id) }, ctx);
+  stats.archived += stats.closed - before;
+  stats.closed = before;
+  notes.push(`Saved as the session \u201c${session.name}\u201d. Open it again from Sessions.`);
 }
 
 // ---- move to new window -----------------------------------------------------
@@ -311,10 +343,12 @@ async function undoUnbookmark(step) {
 
 // ---- undo -------------------------------------------------------------------
 
-export async function undoPlan(undo) {
+/** Reverse a plan, newest step first. `onProgress({ done, total })` reports tabs being reopened. */
+export async function undoPlan(undo, { onProgress } = {}) {
   for (const step of [...undo.steps].reverse()) {
     if (step.type === 'regroup') await undoRegroup(step);
-    else if (step.type === 'reopen') await undoReopen(step);
+    else if (step.type === 'reopen') await undoReopen(step, { onProgress });
+    else if (step.type === 'unsave') await attempt(() => deleteSession(step.sessionId));
     else if (step.type === 'moveBack') await undoMoveBack(step);
     else if (step.type === 'unbookmark') await undoUnbookmark(step);
     else if (step.type === 'remove') await attempt(() => chrome.tabs.remove(step.ids));
@@ -329,6 +363,7 @@ export function describeResult({ stats }) {
   if (stats.grouped) parts.push(`grouped ${tabWord(stats.grouped)}`);
   if (stats.moved) parts.push(`moved ${tabWord(stats.moved)} to a new window`);
   if (stats.bookmarked) parts.push(`bookmarked ${tabWord(stats.bookmarked)}`);
+  if (stats.archived) parts.push(`archived ${tabWord(stats.archived)}`);
   if (stats.closed) parts.push(`closed ${tabWord(stats.closed)}`);
   if (parts.length === 0) return 'Nothing needed to change.';
   const text = parts.join(', ');
@@ -336,5 +371,5 @@ export function describeResult({ stats }) {
 }
 
 export function hasUndoableChanges({ stats }) {
-  return stats.grouped + stats.ungrouped + stats.moved + stats.bookmarked + stats.closed > 0;
+  return stats.grouped + stats.ungrouped + stats.moved + stats.bookmarked + stats.closed + (stats.archived ?? 0) > 0;
 }

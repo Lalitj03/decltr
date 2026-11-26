@@ -11,16 +11,18 @@ export class ApiError extends Error {
   }
 }
 
-async function post(path, body, timeoutMs) {
+async function post(path, body, timeoutMs, signal) {
   let res;
   try {
+    const deadline = AbortSignal.timeout(timeoutMs);
     res = await fetch(`${SERVER_URL}${path}`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify(body),
-      signal: AbortSignal.timeout(timeoutMs),
+      signal: signal && AbortSignal.any ? AbortSignal.any([signal, deadline]) : deadline,
     });
   } catch (err) {
+    if (signal?.aborted) throw new ApiError('aborted', 'Stopped.');
     if (err?.name === 'TimeoutError') {
       throw new ApiError('timeout', 'That took too long. Please try again.');
     }
@@ -43,7 +45,7 @@ export const controlServer = (action) => post('/v1/control', { action }, 5000);
 
 /** True if the server reports every feature the extension needs. An old server reports none. */
 export const serverIsCurrent = (info) => REQUIRED_FEATURES.every((f) => info?.features?.includes(f));
-export const requestPlan = (payload) => post('/v1/plan', payload, 60_000);
+export const requestPlan = (payload, { signal } = {}) => post('/v1/plan', payload, 60_000, signal);
 
 /** Ask the server for a short name for a set of tabs. Tabs: [{ title, url, group? }]. */
 export async function suggestName(tabs) {

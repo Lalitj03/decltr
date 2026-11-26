@@ -4,7 +4,7 @@
 
 import { applyPlan } from './actions.js';
 import {
-  applyAutoName, deleteSession, openSession, undoOpen,
+  applyAutoName, deleteSession, openSession, partOfSession, undoOpen,
 } from './sessions.js';
 import { isLiveEnabled, linkWindow, liveWindowFor, unlinkSession, unlinkWindow } from './tracker.js';
 
@@ -20,24 +20,28 @@ const attempt = async (fn, fallback = null) => {
  * Open a session and, if it now owns its window, keep that window synced.
  * "New window" on a session that is already live just switches to its window, so there are
  * never two windows both writing the same session.
+ *
+ * `positions` opens only those tabs (see pickByGroups and pickByLastUse). Such a window shows part of
+ * the session, so it is never synced: saving it back would drop every tab that was left closed.
+ * The same goes for an open that was stopped halfway.
  */
-export async function openTracked(session, { target, windowId }) {
-  if (target === 'new') {
+export async function openTracked(session, { target, windowId, positions, signal, onProgress }) {
+  const partial = Array.isArray(positions) && new Set(positions).size < session.tabs.length;
+  if (target === 'new' && !partial) {
     const live = await liveWindowFor(session.id);
     if (live !== null) {
       await attempt(() => chrome.windows.update(live, { focused: true }));
       return { switched: true, windowId: live, newWindow: false, createdIds: [], failed: [], removedBlank: 0, sessionId: session.id, tracking: true };
     }
   }
-
-  const info = await openSession(session, { target, windowId });
+  const info = await openSession(partial ? partOfSession(session, positions) : session, { target, windowId, signal, onProgress });
   info.sessionId = session.id;
   info.tracking = false;
-
+  info.partial = partial;
   // The window belongs to the session only if it holds nothing else: a fresh window, or one
   // that was just blank. Adding tabs to a busy window must not turn that window into the session.
   const dedicated = info.newWindow || info.wasBlank;
-  if (info.createdIds.length > 0 && dedicated && (await isLiveEnabled())) {
+  if (!partial && !info.stopped && info.createdIds.length > 0 && dedicated && (await isLiveEnabled())) {
     await linkWindow(info.windowId, session.id);
     info.tracking = true;
   }
