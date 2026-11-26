@@ -12,9 +12,9 @@ An optional [local server](#the-optional-local-server-advanced) can hold your ke
 
 ## Quick start
 
-You need **Chrome 116+** and one of the models below. Load the extension:
+You need **Chrome 116+** or **Microsoft Edge** and one of the models below. Load the extension:
 
-1. Open `chrome://extensions` and turn on **Developer mode**.
+1. Open `chrome://extensions` (in Edge, `edge://extensions`) and turn on **Developer mode**.
 2. Click **Load unpacked** and choose the `extension/` folder.
 3. Pin the Decltr icon and click it to open the side panel.
 
@@ -54,7 +54,7 @@ npm run server:install    # starts the server now, in the background, and at eve
 
 The status pill at the top of the panel should say **Ready**. If it says "Server offline" or "No API key", run `npm run server:status`, which tells you what is missing.
 
-The server only accepts requests from the Decltr extension. If you installed Decltr from the Chrome Web Store, its ID differs from the one pinned for development, so add it with `DECLTR_EXTENSION_ID` (see Configuration).
+The server only accepts requests from the Decltr extension. If you installed Decltr from a store (Edge Add-ons or the Chrome Web Store), its ID differs from the one pinned for development, so add it with `DECLTR_EXTENSION_ID` (see Configuration).
 
 ### Which key?
 
@@ -108,7 +108,7 @@ It records the path to your current `node` and to this folder, so run `npm run s
 
 After pulling changes, do both of these, because the extension and the server are separate programs:
 
-1. **Reload the extension** in `chrome://extensions`.
+1. **Reload the extension** in `chrome://extensions` (or `edge://extensions`).
 2. **Restart the server**: `npm run server:restart`, or Settings → Server → Restart in the panel. If you run it from a terminal instead, stop it with Ctrl+C and run `npm start` again.
 
 If you forget the second step, the status pill in the panel turns into **Restart server**, and AI naming says the server is out of date. (An older server cannot be restarted from the panel. Use `npm run server:restart` or `npm run server:install -- --replace` once.)
@@ -190,12 +190,12 @@ npm test         # server and extension logic, using a mock of the Chrome APIs
 npm run dev:ui   # preview the side panel in a normal tab: http://localhost:5173/panel
                  #   ?server=offline | nokey | billing    &tabs=many
 npm run icons    # regenerate extension/icons
-npm run package  # dist/decltr-<version>.zip for the Chrome Web Store, without the development "key"
+npm run package  # dist/decltr-<version>.zip for Edge Add-ons and the Chrome Web Store, without the development "key"
 ```
 
 ## Contributing, security and privacy
 
-See [CONTRIBUTING.md](CONTRIBUTING.md). Report security problems privately as described in [SECURITY.md](SECURITY.md). The privacy policy is [PRIVACY.md](PRIVACY.md). Store listing text and graphics are in [store/](store/LISTING.md).
+See [CONTRIBUTING.md](CONTRIBUTING.md). Report security problems privately as described in [SECURITY.md](SECURITY.md). The privacy policy is [PRIVACY.md](PRIVACY.md). Store listing text and graphics are in [store/](store/): [EDGE.md](store/EDGE.md) for Edge Add-ons, [LISTING.md](store/LISTING.md) for the Chrome Web Store.
 
 ## Licence
 

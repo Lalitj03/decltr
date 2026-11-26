@@ -2,6 +2,7 @@
 <!-- Store graphics. Served by `npm run dev:ui`:
        http://localhost:5173/dev/store/frame.html?n=1   (1280x800 screenshots, n = 1, 2 or 3)
        http://localhost:5173/dev/store/frame.html?promo (440x280 promo tile)
+       http://localhost:5173/dev/store/frame.html?large (1400x560 large promo tile, Edge Add-ons)
      The panel images come from screenshots of the dev preview (dev/store/panel-N.png, 440x800). -->
 <html>
 <head>
@@ -25,6 +26,13 @@
   .promo .brand { margin: 0 0 18px; font-size: 34px; }
   .promo .brand img { width: 52px; height: 52px; background: #fff; border-radius: 12px; padding: 6px; }
   .promo p { color: #fff; font-size: 21px; line-height: 1.35; }
+  .large { width: 1400px; height: 560px; display: flex; align-items: center; gap: 80px; padding: 0 110px;
+    background: linear-gradient(135deg, #6366f1, #a855f7); color: #fff; overflow: hidden; }
+  .large .copy .brand { font-size: 44px; margin-bottom: 28px; }
+  .large .copy .brand img { width: 72px; height: 72px; background: #fff; border-radius: 16px; padding: 8px; }
+  .large h1 { color: #fff; font-size: 56px; margin-bottom: 18px; }
+  .large p { color: rgb(255 255 255 / 88%); font-size: 24px; }
+  .large .panel { height: 480px; margin-top: 80px; align-self: flex-start; }
 </style>
 </head>
 <body>
@@ -36,7 +44,11 @@
     2: ['Save a window, <span>open it later</span>', 'Sessions keep tabs, groups and their names. Clear a window, then bring it back in any window.'],
     3: ['Your choice <span>of AI</span>', 'Google Gemini with your own key, Ollama on your own computer, or any OpenAI-compatible service. Nothing hosted, no account.'],
   };
-  if (q.has('promo')) {
+  if (q.has('large')) {
+    document.body.innerHTML = `<div class="large"><div class="copy"><div class="brand"><img src="${icon}" alt="">Decltr</div>
+      <h1>Tidy your tabs in plain English</h1><p>Gemini, Ollama or any OpenAI-compatible model. No account, nothing hosted.</p></div>
+      <div class="panel"><img src="/dev/store/panel-1.png" alt=""></div></div>`;
+  } else if (q.has('promo')) {
     document.body.innerHTML = `<div class="promo"><div class="brand"><img src="${icon}" alt="">Decltr</div><p>Tidy your Chrome tabs<br>in plain English.</p></div>`;
   } else {
     const n = Number(q.get('n') ?? 1);

@@ -1,6 +1,6 @@
 # Decltr privacy policy
 
-Effective 26 November 2026. This policy covers the Decltr Chrome extension and the optional Decltr server.
+Effective 26 November 2026. This policy covers the Decltr browser extension (for Chrome and Microsoft Edge) and the optional Decltr server.
 
 Decltr is an independent, open-source hobby project. It has no server of its own, no accounts, no analytics and no advertising. The developer receives no data from you.
 
@@ -24,7 +24,7 @@ Before anything goes to another computer, Decltr shows what it sends and where, 
 
 ## How your API key is stored
 
-Your key is kept in Chrome's storage for this extension. Web pages and other extensions cannot read it, and it is not synced. Chrome does not encrypt this storage, so other programs running under your user account on your computer could read it. Restrict the key to the API it is for, set a spending limit with your provider, and delete the key if you think it leaked. Ollama on your own computer needs no key.
+Your key is kept in the browser's storage for this extension (Chrome or Edge). Web pages and other extensions cannot read it, and it is not synced. The browser does not encrypt this storage, so other programs running under your user account on your computer could read it. Restrict the key to the API it is for, set a spending limit with your provider, and delete the key if you think it leaked. Ollama on your own computer needs no key.
 
 ## What Decltr does not do
 

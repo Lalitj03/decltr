@@ -98,6 +98,11 @@ function png(size) {
   ]);
 }
 
+// The store logo (Edge Add-ons asks for 300x300) lives outside the extension, so it is not packaged.
+const store = join(dirname(fileURLToPath(import.meta.url)), '..', 'store');
+mkdirSync(store, { recursive: true });
+writeFileSync(join(store, 'logo-300.png'), png(300));
+console.log('store/logo-300.png');
 for (const size of [16, 32, 48, 128]) {
   writeFileSync(join(out, `icon${size}.png`), png(size));
   console.log(`icons/icon${size}.png`);
