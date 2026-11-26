@@ -7,6 +7,10 @@ export const DEFAULT_PORT = 47821;
 // Pinned by the "key" field in extension/manifest.json, so it is identical on
 // every machine that loads the unpacked extension.
 export const DEFAULT_EXTENSION_ID = 'jldfhgcphcbkmjmlkkioebphdaipkcjf';
+// The ID Microsoft Edge Add-ons assigned to the store version.
+export const EDGE_STORE_EXTENSION_ID = 'ohffgmfbgpkiaapaidcakhpkhllmhopn';
+// Accepted unless DECLTR_EXTENSION_ID says otherwise: the unpacked copy and the store versions.
+export const DEFAULT_EXTENSION_IDS = [DEFAULT_EXTENSION_ID, EDGE_STORE_EXTENSION_ID];
 
 export const DEFAULT_MODEL = 'gemini-3.5-flash-lite';
 
@@ -21,7 +25,7 @@ export function loadConfig(env = process.env) {
     throw new Error('DECLTR_PORT must be an integer between 1024 and 65535');
   }
 
-  const ids = (env.DECLTR_EXTENSION_ID ?? DEFAULT_EXTENSION_ID)
+  const ids = (env.DECLTR_EXTENSION_ID ?? DEFAULT_EXTENSION_IDS.join(','))
     .split(',')
     .map((s) => s.trim())
     .filter(Boolean);

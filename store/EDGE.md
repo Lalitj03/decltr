@@ -74,5 +74,5 @@ The "Decltr server" option is for users who run the optional open-source server 
 ## After it is published
 
 1. Copy the Edge Add-ons link into the README.
-2. If you use the optional server with the Edge store version, allow its ID too, for example `DECLTR_EXTENSION_ID=jldfhgcphcbkmjmlkkioebphdaipkcjf,<edge id> npm run server:install`.
+2. The Edge store ID (`ohffgmfbgpkiaapaidcakhpkhllmhopn`) is already allowed by the optional server. Users only need `npm run server:restart` after updating.
 3. For updates, raise the version, run `npm run package`, and in Partner Center choose **Update** on the extension's Packages page.

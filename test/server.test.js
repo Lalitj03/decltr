@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createApp } from '../server/src/app.js';
-import { loadConfig, DEFAULT_EXTENSION_ID } from '../server/src/config.js';
+import { loadConfig, DEFAULT_EXTENSION_ID, EDGE_STORE_EXTENSION_ID } from '../server/src/config.js';
 import { callGemini, UpstreamError } from '../extension/lib/ai/gemini.js';
 import {
   buildGeminiBody, buildNameBody, normalizeName, normalizePlan, parseNameRequest, parsePlanRequest, safeUrl,
@@ -436,4 +436,13 @@ test('health tells the panel whether the server can be controlled', async () => 
   await withManaged({ managed: false }, async (call) => {
     assert.equal((await (await call('/v1/health', {})).json()).managed, false);
   });
+});
+
+test('the Edge Add-ons version is accepted by default, and DECLTR_EXTENSION_ID still replaces the list', () => {
+  const edge = `chrome-extension://${EDGE_STORE_EXTENSION_ID}`;
+  const c = loadConfig({});
+  assert.ok(c.allowedOrigins.has(ORIGIN) && c.allowedOrigins.has(edge));
+  assert.equal(c.allowedOrigins.size, 2);
+  const only = loadConfig({ DECLTR_EXTENSION_ID: DEFAULT_EXTENSION_ID });
+  assert.ok(!only.allowedOrigins.has(edge), 'an explicit list is used as given');
 });

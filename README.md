@@ -54,7 +54,7 @@ npm run server:install    # starts the server now, in the background, and at eve
 
 The status pill at the top of the panel should say **Ready**. If it says "Server offline" or "No API key", run `npm run server:status`, which tells you what is missing.
 
-The server only accepts requests from the Decltr extension. If you installed Decltr from a store (Edge Add-ons or the Chrome Web Store), its ID differs from the one pinned for development, so add it with `DECLTR_EXTENSION_ID` (see Configuration).
+The server only accepts requests from the Decltr extension. It accepts both the unpacked copy and the Edge Add-ons version. A Chrome Web Store version would have a different ID, so add that one with `DECLTR_EXTENSION_ID` (see Configuration).
 
 ### Which key?
 
@@ -181,7 +181,7 @@ Environment variables for the optional server:
 | `DECLTR_API_KEY` | your key, if you are not using the Keychain |
 | `DECLTR_MODEL` | `gemini-3.5-flash-lite` |
 | `DECLTR_THINKING_BUDGET` | `0` (raise for harder requests, up to 24576) |
-| `DECLTR_EXTENSION_ID` | the pinned development ID. Comma-separated list allowed. For the background service, set it at install: `DECLTR_EXTENSION_ID=id1,id2 npm run server:install` |
+| `DECLTR_EXTENSION_ID` | the pinned development ID and the Edge Add-ons ID. Comma-separated list allowed. For the background service, set it at install: `DECLTR_EXTENSION_ID=id1,id2 npm run server:install` |
 
 ## Development
 

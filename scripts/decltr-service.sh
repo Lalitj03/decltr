@@ -22,7 +22,7 @@ DOMAIN="gui/$(id -u)"
 TARGET="$DOMAIN/$LABEL"
 PLIST="$HOME/Library/LaunchAgents/$LABEL.plist"
 LOG="$HOME/Library/Logs/$(echo "${LABEL#com.}" | tr '.' '-').log"
-EXTENSION_IDS="${DECLTR_EXTENSION_ID:-jldfhgcphcbkmjmlkkioebphdaipkcjf}"
+EXTENSION_IDS="${DECLTR_EXTENSION_ID:-jldfhgcphcbkmjmlkkioebphdaipkcjf,ohffgmfbgpkiaapaidcakhpkhllmhopn}" # unpacked copy, Edge Add-ons
 ORIGIN="chrome-extension://${EXTENSION_IDS%%,*}" # the status check speaks as the first allowed extension
 OLD_LABEL="com.declt.server" # the service before the product was renamed
 
