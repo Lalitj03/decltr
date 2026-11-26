@@ -395,3 +395,20 @@ test('bookmarks made before the rename stay together: the old "Declt" folder is 
   assert.ok((await chrome.bookmarks.getChildren(other.id)).some((n) => n.title === 'Decltr'));
   assert.equal((await chrome.bookmarks.getChildren(sub.id)).length, 1, 'only the bookmark just added is removed');
 });
+
+test('bookmarks permission refused: a "bookmark, then close" plan changes nothing at all', async () => {
+  const chrome = install();
+  delete chrome.bookmarks; // Chrome leaves the API out until the optional permission is granted
+  const before = (await chrome.tabs.query({})).map((t) => t.id);
+  const plan = { actions: [
+    { type: 'group', tabIds: [3, 4], name: 'Docs', color: 'blue' },
+    { type: 'bookmark', tabIds: [3, 4], folder: 'Saved' },
+    { type: 'close', tabIds: [3, 4] },
+  ] };
+  await assert.rejects(applyPlan(plan, { windowId: 1 }), { code: 'no_bookmarks' });
+  assert.deepEqual((await chrome.tabs.query({})).map((t) => t.id), before, 'no tab was closed');
+  assert.equal((await chrome.tabGroups.query({})).length, 0, 'not even the group step ran');
+  // Plans without bookmarks still work without the permission.
+  const res = await applyPlan({ actions: [{ type: 'close', tabIds: [3] }] }, { windowId: 1 });
+  assert.equal(res.stats.closed, 1);
+});

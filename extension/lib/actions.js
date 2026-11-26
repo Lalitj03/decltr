@@ -35,7 +35,15 @@ const snapshotOf = (tabs, info) =>
 
 const tabWord = (n) => `${n} tab${n === 1 ? '' : 's'}`;
 
+/** True when a plan saves bookmarks, which needs the optional "bookmarks" permission. */
+export const needsBookmarks = (plan) => (plan?.actions ?? []).some((a) => a.type === 'bookmark');
+
 export async function applyPlan(plan, { windowId }) {
+  // Without bookmark access, a "bookmark, then close" plan would close tabs that were never saved.
+  // So refuse the whole plan before changing anything.
+  if (needsBookmarks(plan) && !globalThis.chrome?.bookmarks) {
+    throw Object.assign(new Error('Decltr was not allowed to create bookmarks, so nothing was changed.'), { code: 'no_bookmarks' });
+  }
   const steps = [];
   const stats = { grouped: 0, ungrouped: 0, closed: 0, moved: 0, bookmarked: 0, skipped: 0 };
   const notes = [];

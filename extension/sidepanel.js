@@ -8,7 +8,7 @@ import { snapshot, toApiTabs } from './lib/tabs.js';
 import {
   describeActions, planCloseDuplicates, planCloseGroup, planGroupBySite, planSaveSession, planUngroupAll, planUngroupGroup, sanitizePlan,
 } from './lib/plan.js';
-import { applyPlan, describeResult, hasUndoableChanges, undoPlan } from './lib/actions.js';
+import { applyPlan, describeResult, hasUndoableChanges, needsBookmarks, undoPlan } from './lib/actions.js';
 import { createSessionsView } from './sessions-view.js';
 import { isSessionKey } from './lib/sessions.js';
 import { LINKS_KEY, unlinkAll } from './lib/tracker.js';
@@ -379,6 +379,7 @@ function planCard(plan, snap, again) {
   const items = plan.actions.map((a) => ({ ...a, tabIds: [...a.tabIds], enabled: true, open: false }));
   const card = h('section', { class: 'card' });
   let applying = false;
+  let notice = '';
 
   const activeItems = () => items.filter((i) => i.enabled && i.tabIds.length > 0);
   const closeCount = () => new Set(activeItems().filter((i) => i.type === 'close').flatMap((i) => i.tabIds)).size;
@@ -401,6 +402,7 @@ function planCard(plan, snap, again) {
         list,
         // replaceChildren turns null into the text "null", so optional parts are filtered out.
         closing ? h('div', { class: 'warn' }, icon('alert', 16), `Closes ${closing} tab${closing === 1 ? '' : 's'}. You can undo it afterwards.`) : null,
+        notice ? h('div', { class: 'warn', role: 'alert' }, icon('alert', 16), notice) : null,
         h('div', { class: 'card-foot' }, apply, h('button', { class: 'btn ghost', type: 'button', disabled: applying, onClick: () => card.remove() }, 'Dismiss')),
       ].filter(Boolean),
     );
@@ -457,9 +459,16 @@ function planCard(plan, snap, again) {
   }
 
   async function doApply() {
+    const finalPlan = { actions: activeItems().map(({ enabled, open, ...a }) => a) };
+    // Bookmarks are an optional permission, asked for the first time a plan saves some.
+    // Chrome only shows the prompt in response to a click, so this comes before anything else is awaited.
+    if (needsBookmarks(finalPlan) && !(await chrome.permissions.request({ permissions: ['bookmarks'] }).catch(() => false))) {
+      notice = 'Saving bookmarks needs your permission, so nothing was changed. Press Apply again and choose Allow, or switch off the bookmark step.';
+      return render();
+    }
+    notice = '';
     applying = true;
     render();
-    const finalPlan = { actions: activeItems().map(({ enabled, open, ...a }) => a) };
     try {
       const result = await applyPlan(finalPlan, { windowId: snap.windowId });
       await rememberUndo(result);

@@ -145,7 +145,7 @@ The **Sessions** tab saves a window as a named workspace and reopens it later, i
 - Sessions live in this browser profile's extension storage (`chrome.storage.local`). They are not synced and are not sent anywhere. The only exception is optional AI naming, which sends the session's tab titles and addresses (without query strings) to your chosen model, like any other AI action. They include full URLs, so anything in a URL is stored as is.
 - Pages that cannot be reopened by an extension (`javascript:`, `data:`, other extensions' pages) and blank tabs are not saved.
 
-Bookmarks go into **Other bookmarks → Decltr → \<folder\>**. Pinned tabs are left alone unless you enable them in settings.
+Bookmarks go into **Other bookmarks → Decltr → \<folder\>**. The first time a plan saves bookmarks, Chrome asks whether Decltr may use them. If you say no, nothing in that plan is changed, so tabs are never closed without being saved. Pinned tabs are left alone unless you enable them in settings.
 
 ## How the key is protected (local server)
 

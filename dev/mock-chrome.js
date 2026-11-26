@@ -281,10 +281,10 @@ export function createMockChrome({ tabs: seed = [], groups: seedGroups = [], boo
     permissions: {
       __granted: new Set(),
       __answer: true, // what the user "clicks" when Chrome asks
-      contains: async ({ origins = [] }) => origins.every((o) => chrome.permissions.__granted.has(o)),
-      request: async ({ origins = [] }) => {
-        chrome.permissions.__asked = [...(chrome.permissions.__asked ?? []), origins];
-        if (chrome.permissions.__answer) origins.forEach((o) => chrome.permissions.__granted.add(o));
+      contains: async ({ origins = [], permissions = [] }) => [...origins, ...permissions].every((o) => chrome.permissions.__granted.has(o)),
+      request: async ({ origins = [], permissions = [] }) => {
+        chrome.permissions.__asked = [...(chrome.permissions.__asked ?? []), [...origins, ...permissions]];
+        if (chrome.permissions.__answer) [...origins, ...permissions].forEach((o) => chrome.permissions.__granted.add(o));
         return chrome.permissions.__answer;
       },
     },
