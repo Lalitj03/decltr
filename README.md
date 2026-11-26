@@ -126,7 +126,18 @@ Each plan lists its actions with checkboxes. Expand an action to drop single tab
 | Quick action | Runs |
 | --- | --- |
 | Group by topic, Split off leisure, Full tidy-up, Regroup from scratch | AI (your chosen model) |
-| Group by site, Close duplicates, Bookmark & clear, Ungroup all | On-device, nothing is sent anywhere |
+| Group by site, Close duplicates, Archive old tabs, Bookmark & clear, Ungroup all | On-device, nothing is sent anywhere |
+
+**Archive old tabs.** Pick how long a tab must have gone unused: 1 week, 2 weeks, 1 month, 3 months or 6 months. Each choice shows how many tabs it would take. Those tabs are saved as a session marked *Archive*, then closed, and Undo brings them back. The tab you are on and tabs playing sound are never archived. It uses the time you last switched to each tab, which Chrome records from version 121. A browser restart can reset that time for some tabs, which only makes them look more recently used, so archiving errs on the side of keeping tabs.
+
+## Big windows
+
+Decltr is built to cope with hundreds of tabs.
+
+- **AI plans in parts.** A window with more than 80 tabs is planned in parts of about 80, a few at a time, and groups from different parts that mean the same thing are merged. A progress bar shows how far it is, and Stop cancels it. On a 650-tab test window with 20 topics, this grouped 93 to 98% of the tabs, in 11 to 19 seconds with Gemini Flash-Lite, where a single request with 300 tabs made no plan at all. If one part fails, the plan says which tabs were left as they are.
+- **On-device actions** work on every tab in the window.
+- **Suggestions.** From 120 tabs, the start screen suggests ways to make the window lighter, each with what it would do right now: archive old tabs, close duplicates, group by topic, or save the window as a session. Dismiss them with the ×.
+
 
 **Managing groups.** The start screen lists the tab groups in the window. **Ungroup** dissolves a group and keeps its tabs open. **Close** deletes the group together with its tabs. Both show a plan first and can be undone. Unnamed groups are listed too. With the AI you can say things like "ungroup everything and regroup by project" or "delete the Shopping group".
 
@@ -142,8 +153,10 @@ The **Sessions** tab saves a window as a named workspace and reopens it later, i
 - **Live sessions.** When you open a session into a new window (or into a window that has no real tabs), that window follows the session: tabs you open, close, move, pin, regroup or navigate are saved back to it, a couple of seconds after each change. A card shows a green **Live** line with **Stop syncing**. Opening a live session again switches to its window instead of making a copy. The "Keep opened sessions up to date" setting turns the whole feature off.
 - Syncing is careful by design: a window that is closing is never saved halfway, a window with no real tabs never empties a session, Save & clear and Undo stop the window from following the session first, and a deleted session is never recreated. The flip side is that closing a tab in a live window removes it from the session. Use **Stop syncing** if you want to experiment without changing the saved one. Adding a session to a window that already has tabs does not make that window live.
 - Pinned tabs are saved and cleared only if "Include pinned tabs" is on in settings, like everywhere else in Decltr.
-- Sessions live in this browser profile's extension storage (`chrome.storage.local`). They are not synced and are not sent anywhere. The only exception is optional AI naming, which sends the session's tab titles and addresses (without query strings) to your chosen model, like any other AI action. They include full URLs, so anything in a URL is stored as is.
+- Sessions live in this browser profile's extension storage (`chrome.storage.local`), including when each tab was last used. They are not synced and are not sent anywhere. The only exception is optional AI naming, which sends the session's tab titles and addresses (without query strings) to your chosen model, like any other AI action. They include full URLs, so anything in a URL is stored as is.
 - Pages that cannot be reopened by an extension (`javascript:`, `data:`, other extensions' pages) and blank tabs are not saved.
+- **Big sessions open lightly.** From 16 tabs, every tab appears right away, but only the tab you land on and pinned tabs load. The others load when you click them, so even a 650-tab session cannot use up your computer's memory. Decltr opens a few tabs at a time, waits until Chrome knows each page's address and title, then unloads it. A page that is slow to send its title shows its address until you click it, and the saved session keeps the real title. A progress bar shows how far it is, and Stop keeps what has opened so far. Undoing a big close reopens the tabs the same way.
+- **Open part of a session.** Expand a session (the arrow) to see its tabs under their groups. Tick whole groups or single tabs, or use *Pick…* to choose the 10, 25, 50 or 100 most or least recently used tabs, then open just those in a new window or this one. A window that shows part of a session is not kept up to date, so the saved session stays whole. Sessions saved before version 0.6 do not know when their tabs were used, so they offer groups and single tabs only.
 
 Bookmarks go into **Other bookmarks → Decltr → \<folder\>**. The first time a plan saves bookmarks, Chrome asks whether Decltr may use them. If you say no, nothing in that plan is changed, so tabs are never closed without being saved. Pinned tabs are left alone unless you enable them in settings.
 

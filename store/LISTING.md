@@ -32,7 +32,13 @@ WORKS WITH THE AI YOU CHOOSE
 
 NO AI NEEDED FOR
 • Group by site, close duplicates, bookmark and clear, ungroup all
-• Sessions: save a window as a named workspace, clear it, and reopen it later in any window. An opened session keeps itself up to date.
+• Archive old tabs: save the tabs you have not used for a week, a month or longer as a session, then close them
+• Sessions: save a window as a named workspace, clear it, and reopen it later in any window, all of it or just the groups or tabs you pick. An opened session keeps itself up to date.
+
+BUILT FOR HUNDREDS OF TABS
+• Big windows are planned by AI in parts, with progress you can follow and stop
+• Big sessions open without loading every tab, so opening 650 tabs does not run out of memory
+• A window with hundreds of tabs gets suggestions to make it lighter
 
 PRIVATE BY DESIGN
 • No account, no analytics, no server of its own.
@@ -44,7 +50,7 @@ PRIVATE BY DESIGN
 Decltr is an independent project. It is not affiliated with or endorsed by Google, Ollama, OpenAI or any other AI provider.
 ```
 
-**Graphics:** `store/screenshot-1.png` to `store/screenshot-3.png` (1280x800), `store/promo-440x280.png`, icon `extension/icons/icon128.png`.
+**Graphics:** `store/screenshot-1.png` to `store/screenshot-4.png` (1280x800), `store/promo-440x280.png`, icon `extension/icons/icon128.png`.
 
 **Official URL / homepage:** https://github.com/Lalitj03/decltr
 

@@ -31,7 +31,9 @@ Decltr always shows its plan first. You can switch off any step or drop single t
 
 Works with the AI you choose. Use Google Gemini with your own API key, Ollama running on your own computer so nothing leaves it, or any OpenAI-compatible service such as OpenAI, OpenRouter, Groq, LM Studio, llama.cpp or vLLM.
 
-Many features need no AI at all. Group by site, close duplicates, bookmark and clear, and ungroup all work on your device. Sessions let you save a window as a named workspace, clear it, and reopen it later in any window. An opened session keeps itself up to date.
+Many features need no AI at all. Group by site, close duplicates, bookmark and clear, and ungroup all work on your device. Archive old tabs saves the tabs you have not used for a week, a month or longer as a session, then closes them. Sessions let you save a window as a named workspace, clear it, and reopen it later in any window, all of it or just the groups or tabs you pick. An opened session keeps itself up to date.
+
+Built for hundreds of tabs. Big windows are planned by AI in parts, with progress you can follow and stop. Big sessions open without loading every tab, so opening 650 tabs does not run out of memory. A window with hundreds of tabs gets suggestions to make it lighter.
 
 Private by design. There is no account, no analytics and no server of its own. Tab titles and addresses go only to the AI model you chose, and only when you use an AI action. Everything after "?" or "#" in an address is removed first. Decltr asks before sending anything to another computer, and your API key stays in this browser. Bookmark access is asked for only the first time you save bookmarks.
 
@@ -47,7 +49,7 @@ Decltr is an independent project. It is not affiliated with or endorsed by Micro
 | Extension logo (300x300) | `store/logo-300.png` |
 | Small promotional tile (440x280) | `store/promo-440x280.png` |
 | Large promotional tile (1400x560) | `store/promo-1400x560.png` |
-| Screenshots (1280x800) | `store/screenshot-1.png`, `screenshot-2.png`, `screenshot-3.png` |
+| Screenshots (1280x800) | `store/screenshot-1.png` to `screenshot-4.png` |
 
 **Search terms** (at most 7 terms and 21 words):
 

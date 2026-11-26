@@ -1,6 +1,6 @@
 <!doctype html>
 <!-- Store graphics. Served by `npm run dev:ui`:
-       http://localhost:5173/dev/store/frame.html?n=1   (1280x800 screenshots, n = 1, 2 or 3)
+       http://localhost:5173/dev/store/frame.html?n=1   (1280x800 screenshots, n = 1 to 4)
        http://localhost:5173/dev/store/frame.html?promo (440x280 promo tile)
        http://localhost:5173/dev/store/frame.html?large (1400x560 large promo tile, Edge Add-ons)
      The panel images come from screenshots of the dev preview (dev/store/panel-N.png, 440x800). -->
@@ -43,6 +43,7 @@
     1: ['Tidy your tabs <span>in plain English</span>', 'Say what you want. Decltr shows a plan you can check and adjust, applies it, and can undo it.'],
     2: ['Save a window, <span>open it later</span>', 'Sessions keep tabs, groups and their names. Clear a window, then bring it back in any window.'],
     3: ['Your choice <span>of AI</span>', 'Google Gemini with your own key, Ollama on your own computer, or any OpenAI-compatible service. Nothing hosted, no account.'],
+    4: ['Built for <span>hundreds of tabs</span>', 'Archive tabs you have not used in weeks, open big sessions without loading every tab, and let AI sort huge windows in parts.'],
   };
   if (q.has('large')) {
     document.body.innerHTML = `<div class="large"><div class="copy"><div class="brand"><img src="${icon}" alt="">Decltr</div>
