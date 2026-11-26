@@ -16,8 +16,8 @@ import { launchChrome, openPage } from './cdp.mjs';
 import { buildCases, NAME_CASES, scoreName } from './cases.mjs';
 import {
   buildGeminiBody, buildNameBody, NAME_SCHEMA, normalizeName, normalizePlan, parsePlanRequest, PLAN_SCHEMA,
-} from '../../server/src/plan.js';
-import { callGemini } from '../../server/src/gemini.js';
+} from '../../extension/lib/ai/core.js';
+import { callGemini } from '../../extension/lib/ai/gemini.js';
 import { readApiKey } from '../../server/src/keychain.js';
 
 const here = dirname(fileURLToPath(import.meta.url));

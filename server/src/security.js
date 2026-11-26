@@ -39,7 +39,4 @@ export class RateLimiter {
   }
 }
 
-export function redact(text, secret) {
-  const s = String(text ?? '');
-  return secret ? s.replaceAll(secret, '[redacted]') : s;
-}
+export { redact } from '../../extension/lib/ai/redact.js';

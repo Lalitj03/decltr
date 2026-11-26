@@ -2,8 +2,8 @@ import http from 'node:http';
 import { authorize, RateLimiter, redact } from './security.js';
 import {
   buildGeminiBody, buildNameBody, normalizeName, normalizePlan, parseNameRequest, parsePlanRequest, RequestError,
-} from './plan.js';
-import { callGemini, UpstreamError } from './gemini.js';
+} from '../../extension/lib/ai/core.js';
+import { callGemini, UpstreamError } from '../../extension/lib/ai/gemini.js';
 
 const MAX_BODY_BYTES = 512 * 1024;
 export const VERSION = '0.3.0';

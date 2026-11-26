@@ -7,16 +7,11 @@
 
 import { DEFAULT_PROVIDER, PROVIDERS } from './config.js';
 import { macKeychain, readApiKey } from './keychain.js';
+import { detectKeyType } from '../../extension/lib/ai/keytype.js';
+
+export { detectKeyType };
 
 export const PROVIDER_LABELS = { vertex: 'Vertex AI', gemini: 'Gemini API (AI Studio)' };
-
-/** "gemini", "vertex", or null when the key is in a format we do not recognise. */
-export function detectKeyType(key) {
-  if (typeof key !== 'string') return null;
-  if (/^AIza[A-Za-z0-9_-]{30,}$/.test(key)) return 'gemini';
-  if (/^AQ\.[A-Za-z0-9._-]{20,}$/.test(key)) return 'vertex';
-  return null;
-}
 
 /**
  * Decide where a key is saved. A type given on the command line wins, but if it disagrees with

@@ -79,6 +79,22 @@ button { cursor: pointer; }
 .server-state { font-size: 12px; color: var(--muted); text-align: right; }
 .server-help { margin: 4px 0 8px; font-size: 12px; color: var(--muted); }
 .server-help code { font: 11.5px ui-monospace, Menlo, monospace; background: var(--surface); border-radius: 4px; padding: 0 4px; }
+.ai-fields { display: flex; flex-direction: column; gap: 2px; }
+.field { display: flex; flex-direction: column; gap: 3px; margin-top: 8px; font-size: 12px; color: var(--muted); }
+.field em { font-style: normal; opacity: .8; }
+.field input, .field select { border: 1px solid var(--line); background: var(--bg); color: var(--text); border-radius: 8px; padding: 6px 8px; font: 13px system-ui, sans-serif; outline: 0; min-width: 0; }
+.field input:focus, .field select:focus { border-color: var(--accent); }
+.ai-box .row { margin-top: 10px; }
+.ai-box .link-btn { align-self: flex-start; margin-top: 6px; }
+.ai-result { margin: 8px 0 0; font-size: 12.5px; overflow-wrap: anywhere; }
+.ai-result:empty { display: none; }
+.ai-result.ok { color: var(--ok); }
+.ai-result.bad { color: var(--danger); }
+.ai-result.busy { color: var(--muted); }
+.choice { display: flex; flex-direction: column; gap: 2px; text-align: left; width: 100%; padding: 9px 12px; border: 1px solid var(--line); background: var(--surface); border-radius: 10px; }
+.choice:hover { border-color: var(--accent); }
+.choice b { font-size: 13px; }
+.choice span { color: var(--muted); font-size: 12px; }
 .privacy { margin: 12px 0 0; color: var(--muted); font-size: 12px; }
 
 /* ---------- view switch ---------- */

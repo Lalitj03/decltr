@@ -278,6 +278,25 @@ export function createMockChrome({ tabs: seed = [], groups: seedGroups = [], boo
       session: makeArea(state.storage.session, 'session'),
       onChanged: ev.storageChanged,
     },
+    permissions: {
+      __granted: new Set(),
+      __answer: true, // what the user "clicks" when Chrome asks
+      contains: async ({ origins = [] }) => origins.every((o) => chrome.permissions.__granted.has(o)),
+      request: async ({ origins = [] }) => {
+        chrome.permissions.__asked = [...(chrome.permissions.__asked ?? []), origins];
+        if (chrome.permissions.__answer) origins.forEach((o) => chrome.permissions.__granted.add(o));
+        return chrome.permissions.__answer;
+      },
+    },
+    declarativeNetRequest: (() => {
+      let rules = [];
+      return {
+        updateDynamicRules: async ({ removeRuleIds = [], addRules = [] }) => {
+          rules = rules.filter((r) => !removeRuleIds.includes(r.id)).concat(addRules);
+        },
+        getDynamicRules: async () => rules.map((r) => JSON.parse(JSON.stringify(r))),
+      };
+    })(),
     sidePanel: { setPanelBehavior: async () => {} },
     runtime: { id: 'testextensionid', onInstalled: { addListener() {} }, onStartup: { addListener() {} } },
   };

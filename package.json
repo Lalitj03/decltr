@@ -1,6 +1,7 @@
 {
   "name": "decltr",
-  "version": "0.3.0",
+  "version": "0.4.0",
+  "license": "MIT",
   "private": true,
   "description": "Decltr: organize Chrome tabs with plain-English instructions. Includes the extension and a local companion server that keeps your Gemini API key off the browser.",
   "type": "module",

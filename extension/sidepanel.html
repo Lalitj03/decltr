@@ -36,7 +36,7 @@
           <span class="switch" aria-hidden="true"></span>
           <span>
             <strong>Name new sessions with AI</strong>
-            <small>After saving, suggests a short name. Sends the session's tab titles and addresses to Gemini.</small>
+            <small>After saving, suggests a short name. Sends the session's tab titles and addresses to the AI model you chose below.</small>
           </span>
         </label>
         <label class="switch-row">
@@ -47,7 +47,50 @@
             <small>While a session's window is open, tab and group changes are saved to it.</small>
           </span>
         </label>
-        <div class="server-box">
+        <div id="aiBox" class="server-box ai-box">
+          <div class="server-head">
+            <strong>AI model</strong>
+            <span id="aiState" class="server-state"></span>
+          </div>
+          <label class="field">
+            <span>Use</span>
+            <select id="aiProvider" aria-label="AI model">
+              <option value="google">Google Gemini (your API key)</option>
+              <option value="ollama">Ollama (runs on your computer)</option>
+              <option value="openai">Other OpenAI-compatible server</option>
+              <option value="server">Decltr server (advanced)</option>
+            </select>
+          </label>
+
+          <div id="aiFields-google" class="ai-fields" hidden>
+            <label class="field"><span>API key</span>
+              <input id="googleKey" type="password" autocomplete="off" spellcheck="false" placeholder="AIza… or AQ.…" /></label>
+            <button id="googleForget" class="link-btn" type="button" hidden>Forget the saved key</button>
+            <label class="field"><span>Model</span><input id="googleModel" type="text" autocomplete="off" spellcheck="false" /></label>
+          </div>
+
+          <div id="aiFields-ollama" class="ai-fields" hidden>
+            <label class="field"><span>Address</span><input id="ollamaUrl" type="text" autocomplete="off" spellcheck="false" placeholder="http://127.0.0.1:11434" /></label>
+            <label class="field"><span>Model</span>
+              <input id="ollamaModel" type="text" list="ollamaModels" autocomplete="off" spellcheck="false" placeholder="for example llama3.2" />
+              <datalist id="ollamaModels"></datalist></label>
+            <button id="ollamaFind" class="link-btn" type="button">Show the models I have downloaded</button>
+          </div>
+
+          <div id="aiFields-openai" class="ai-fields" hidden>
+            <label class="field"><span>Address</span><input id="openaiUrl" type="text" autocomplete="off" spellcheck="false" placeholder="https://api.openai.com/v1" /></label>
+            <label class="field"><span>API key <em>(optional for local servers)</em></span>
+              <input id="openaiKey" type="password" autocomplete="off" spellcheck="false" /></label>
+            <button id="openaiForget" class="link-btn" type="button" hidden>Forget the saved key</button>
+            <label class="field"><span>Model</span><input id="openaiModel" type="text" autocomplete="off" spellcheck="false" /></label>
+          </div>
+
+          <p id="aiHelp" class="server-help"></p>
+          <div class="row"><button id="aiSave" class="btn small" type="button">Save and test</button></div>
+          <p id="aiResult" class="ai-result" role="status"></p>
+        </div>
+
+        <div id="serverBox" class="server-box">
           <div class="server-head">
             <strong>Server</strong>
             <span id="serverState" class="server-state">Checking…</span>
@@ -59,9 +102,10 @@
           </div>
         </div>
         <p class="privacy">
-          <strong>Privacy:</strong> when you use an AI action, tab titles and addresses (without
-          anything after "?" or "#") are sent to Google Gemini through the Decltr server on your computer.
-          Quick actions marked <em>On-device</em> send nothing. Saving, opening and syncing sessions stay in your browser, except for the optional AI naming above.
+          <strong>Privacy:</strong> when you use an AI action, tab titles and addresses (without anything after "?" or "#") are
+          sent to the AI model you chose: Google Gemini, another service, or the Decltr server. With Ollama they stay on
+          your computer. Quick actions marked <em>On-device</em> send nothing. Saving, opening and syncing sessions stay in your
+          browser, except for the optional AI naming above. API keys you enter here are kept in this browser only.
         </p>
       </section>
 

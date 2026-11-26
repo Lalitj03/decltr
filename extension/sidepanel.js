@@ -1,5 +1,9 @@
 import { h, icon } from './ui.js';
-import { ApiError, checkHealth, controlServer, requestPlan, serverIsCurrent } from './lib/api.js';
+import { ApiError, checkHealth, controlServer, serverIsCurrent } from './lib/api.js';
+import { planWithAI, nameWithAI } from './lib/ai/index.js';
+import { AI_KEY, isConfigured, loadAiConfig, PROVIDER_NAMES } from './lib/ai/config.js';
+import { hasAccess, requestAccess, syncOriginRule } from './lib/ai/network.js';
+import { createAiSettings } from './ai-settings.js';
 import { snapshot, toApiTabs } from './lib/tabs.js';
 import {
   describeActions, planCloseDuplicates, planCloseGroup, planGroupBySite, planSaveSession, planUngroupAll, planUngroupGroup, sanitizePlan,
@@ -15,6 +19,9 @@ const els = {
   navOrganize: $('navOrganize'), navSessions: $('navSessions'), sessionsView: $('sessionsView'), composer: document.querySelector('.composer'),
   thread: $('thread'), welcome: $('welcome'), welcomeSub: $('welcomeSub'), presets: $('presets'), examples: $('examples'),
   form: $('form'), input: $('input'), send: $('send'), chips: $('chips'), status: $('status'), statusText: $('statusText'),
+  aiBox: $('aiBox'), serverBox: $('serverBox'), aiState: $('aiState'), aiProvider: $('aiProvider'), aiHelp: $('aiHelp'), aiSave: $('aiSave'), aiResult: $('aiResult'),
+  googleKey: $('googleKey'), googleModel: $('googleModel'), googleForget: $('googleForget'), ollamaUrl: $('ollamaUrl'), ollamaModel: $('ollamaModel'), ollamaModels: $('ollamaModels'), ollamaFind: $('ollamaFind'),
+  openaiUrl: $('openaiUrl'), openaiKey: $('openaiKey'), openaiModel: $('openaiModel'), openaiForget: $('openaiForget'),
   serverState: $('serverState'), serverHelp: $('serverHelp'), restartBtn: $('restartBtn'), stopBtn: $('stopBtn'),
   settings: $('settings'), autoNameSessions: $('autoNameSessions'), liveSessions: $('liveSessions'), settingsBtn: $('settingsBtn'), resetBtn: $('resetBtn'), includePinned: $('includePinned'),
 };
@@ -54,19 +61,23 @@ const EXAMPLES = [
   'Ungroup everything, then group by project',
 ];
 
-const state = { busy: false, includePinned: false, autoNameSessions: true, liveSessions: true, hasThread: false, undoButton: null, health: 'checking', view: 'organize', serverInfo: null, serverBusy: false, confirmStop: false };
+const state = { busy: false, includePinned: false, autoNameSessions: true, liveSessions: true, hasThread: false, undoButton: null, health: 'checking', view: 'organize', serverInfo: null, serverBusy: false, confirmStop: false, ai: null, aiChosen: false };
 
 const sessionsView = createSessionsView({
   els: {
     name: $('sessionName'), suggestBtn: $('suggestBtn'), saveBox: $('saveBox'), saveBtn: $('saveBtn'), saveClearBtn: $('saveClearBtn'), saveInfo: $('saveInfo'),
     status: $('sessionStatus'), list: $('sessionList'), empty: $('sessionsEmpty'), count: $('sessionCount'),
   },
+  getAiConfig: () => state.ai,
   getSettings: () => ({ includePinned: state.includePinned, autoNameSessions: state.autoNameSessions, liveSessions: state.liveSessions }),
 });
 
 /* ------------------------------------------------------------------ setup */
 
 async function init() {
+  state.ai = await loadAiConfig();
+  state.aiChosen = AI_KEY in (await chrome.storage.local.get(AI_KEY));
+  await syncOriginRule(state.ai).catch(() => {});
   const saved = await chrome.storage.local.get({ includePinned: false, autoNameSessions: true, liveSessions: true });
   state.includePinned = saved.includePinned;
   state.autoNameSessions = saved.autoNameSessions;
@@ -75,6 +86,7 @@ async function init() {
   els.autoNameSessions.checked = state.autoNameSessions;
   els.liveSessions.checked = state.liveSessions;
 
+  aiSettings.render();
   els.settingsBtn.append(icon('sliders'));
   els.resetBtn.append(icon('reset'));
   els.send.append(icon('send', 18));
@@ -87,6 +99,22 @@ async function init() {
   refreshHealth();
   autosize();
 }
+
+const aiSettings = createAiSettings({
+  els: {
+    provider: els.aiProvider, help: els.aiHelp, save: els.aiSave, result: els.aiResult, state: els.aiState,
+    googleKey: els.googleKey, googleModel: els.googleModel, googleForget: els.googleForget,
+    ollamaUrl: els.ollamaUrl, ollamaModel: els.ollamaModel, ollamaModels: els.ollamaModels, ollamaFind: els.ollamaFind,
+    openaiUrl: els.openaiUrl, openaiKey: els.openaiKey, openaiModel: els.openaiModel, openaiForget: els.openaiForget,
+  },
+  getConfig: () => state.ai,
+  onSaved(config) {
+    state.ai = config;
+    state.aiChosen = true;
+    els.welcome.querySelector('[data-setup]')?.remove();
+    refreshHealth();
+  },
+});
 
 function wireEvents() {
   els.form.addEventListener('submit', (e) => {
@@ -134,7 +162,10 @@ function wireEvents() {
     if (!state.liveSessions) await unlinkAll();
     sessionsView.renderList({ force: true });
   });
-  els.status.addEventListener('click', refreshHealth);
+  els.status.addEventListener('click', () => {
+    if (state.health === 'setup') openSettings();
+    refreshHealth();
+  });
   document.addEventListener('visibilitychange', () => {
     if (!document.hidden) {
       refreshHealth();
@@ -304,10 +335,14 @@ async function run({ label, preset, instruction }) {
     if (preset?.local) {
       raw = preset.local(snap.tabs);
     } else {
+      const blocked = await aiBlocker();
+      if (blocked) {
+        add(blocked);
+        return;
+      }
       thinking = add(thinkingCard());
-      const res = await requestPlan({ instruction: instruction ?? preset.prompt, tabs: toApiTabs(snap) });
-      raw = res.plan;
-      if (state.health !== 'outdated') setHealth('ok');
+      raw = await planWithAI({ instruction: instruction ?? preset.prompt, tabs: toApiTabs(snap) }, state.ai);
+      if (state.ai.provider === 'server' && state.health !== 'outdated') setHealth('ok');
     }
     thinking?.remove();
 
@@ -489,11 +524,15 @@ async function restoreUndoBanner() {
 /* ------------------------------------------------------------------- errors */
 
 function errorCard(err, again) {
-  const code = err instanceof ApiError ? err.code : 'error';
-  if (code === 'offline') return setupCard('offline');
-  if (code === 'no_key') return setupCard('no_key');
+  const code = typeof err?.code === 'string' ? err.code : 'error';
+  const server = state.ai?.provider === 'server';
+  if (code === 'not_configured') return chooserCard();
+  if (server && code === 'offline') return state.aiChosen ? setupCard('offline') : chooserCard();
+  if (server && code === 'no_key') return setupCard('no_key');
 
-  const message = err instanceof ApiError ? err.message : 'Something went wrong while changing your tabs.';
+  // Messages from the model layer, the server and the request checks are written to be read by a person.
+  const known = err instanceof ApiError || err instanceof Error && typeof err.code === 'string';
+  const message = known && err.message ? err.message : 'Something went wrong while changing your tabs.';
   return h('div', { class: 'banner error' },
     h('h3', null, icon('alert', 16), 'That did not work'),
     h('p', null, message),
@@ -535,15 +574,25 @@ function setupCard(kind) {
 
 function setHealth(kind) {
   state.health = kind;
-  const map = { ok: 'Ready', warn: 'No API key', off: 'Server offline', outdated: 'Restart server', checking: 'Checking' };
-  els.status.title = kind === 'outdated' ? 'The running Decltr server is older than this extension. Restart it: Settings, Server, Restart (or run npm run server:restart).' : '';
+  const map = { ok: 'Ready', warn: 'No API key', setup: 'Set up AI', off: 'Server offline', outdated: 'Restart server', checking: 'Checking' };
+  els.status.title = kind === 'ok' && state.ai?.provider !== 'server' ? `Using ${PROVIDER_NAMES[state.ai.provider]}` : kind === 'setup' ? 'Choose which AI model Decltr should use.' : kind === 'outdated' ? 'The running Decltr server is older than this extension. Restart it: Settings, Server, Restart (or run npm run server:restart).' : '';
   els.status.dataset.state = kind;
   els.statusText.textContent = map[kind];
-  els.status.setAttribute('aria-label', `Server status: ${map[kind]}. Click to re-check.`);
+  els.status.setAttribute('aria-label', `AI status: ${map[kind]}. Click to re-check.`);
 }
 
 async function refreshHealth() {
   setHealth('checking');
+  aiSettings.renderState();
+  // A model that runs from the extension has no server to ask. It is ready when it is set up and Chrome allows the address.
+  if (state.ai.provider !== 'server') {
+    state.serverInfo = null;
+    const ready = isConfigured(state.ai) && (await hasAccess(state.ai));
+    setHealth(ready ? 'ok' : 'setup');
+    renderServerBox();
+    showWelcomeSetup(ready ? null : isConfigured(state.ai) ? accessCard() : chooserCard());
+    return;
+  }
   try {
     const info = await checkHealth();
     state.serverInfo = info;
@@ -554,10 +603,65 @@ async function refreshHealth() {
   }
   renderServerBox();
   // Keep a setup hint visible on the welcome screen when AI is not usable.
+  const needsHelp = state.health !== 'ok' && state.health !== 'checking' && state.health !== 'outdated';
+  // Someone who has not chosen a model yet gets the choices, not instructions for one particular server.
+  const card = !needsHelp ? null : state.health === 'off' ? (state.aiChosen ? setupCard('offline') : chooserCard()) : setupCard('no_key');
+  showWelcomeSetup(card);
+}
+
+function showWelcomeSetup(card) {
   els.welcome.querySelector('[data-setup]')?.remove();
-  if (!state.hasThread && state.health !== 'ok' && state.health !== 'checking' && state.health !== 'outdated') {
-    els.welcome.insertBefore(setupCard(state.health === 'off' ? 'offline' : 'no_key'), els.presets);
-  }
+  if (card && !state.hasThread) els.welcome.insertBefore(card, els.presets);
+}
+
+/* ------------------------------------------------------------------ choosing a model */
+
+function openSettings(provider) {
+  els.settings.hidden = false;
+  els.settingsBtn.setAttribute('aria-expanded', 'true');
+  if (provider) aiSettings.choose(provider);
+  els.aiBox.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+}
+
+/** Shown when no model is set up. Picking one opens its settings, which is where the details are entered. */
+function chooserCard() {
+  const choice = (provider, title, text) =>
+    h('button', { class: 'choice', type: 'button', onClick: () => openSettings(provider) }, h('b', null, title), h('span', null, text));
+  return h('div', { class: 'banner', 'data-setup': '' },
+    h('h3', null, icon('sparkles', 16), 'Choose how Decltr should think'),
+    h('p', null, 'AI actions need a model. Quick actions marked On-device work without one.'),
+    choice('google', 'Google Gemini', 'Paste an API key. Nothing to install.'),
+    choice('ollama', 'Ollama', 'Runs on your computer. Nothing leaves it.'),
+    choice('openai', 'Another service', 'OpenAI, OpenRouter, Groq, LM Studio and others.'),
+  );
+}
+
+/** The chosen address has not been allowed in Chrome yet. Chrome only asks while handling a click, hence the button. */
+function accessCard() {
+  const where = new URL(state.ai[state.ai.provider === 'ollama' ? 'ollama' : 'openai'].baseUrl ?? 'https://x.invalid').origin;
+  const card = h('div', { class: 'banner', 'data-setup': '' },
+    h('h3', null, icon('plug', 16), 'Allow Decltr to reach your model'),
+    h('p', null, `Chrome needs your permission before Decltr can contact ${state.ai.provider === 'google' ? 'Google' : where}.`),
+    h('div', { class: 'row' },
+      h('button', { class: 'btn primary', type: 'button', onClick: async () => {
+        if (await requestAccess(state.ai)) {
+          await syncOriginRule(state.ai);
+          card.remove();
+          refreshHealth();
+        }
+      } }, 'Allow'),
+      h('button', { class: 'btn', type: 'button', onClick: () => openSettings() }, 'Settings'),
+    ),
+  );
+  return card;
+}
+
+/** Returns a card to show instead of running an AI action, or null when the chosen model is ready. */
+async function aiBlocker() {
+  if (state.ai.provider === 'server') return null;
+  if (!isConfigured(state.ai)) return chooserCard();
+  if (!(await hasAccess(state.ai))) return accessCard();
+  return null;
 }
 
 /* ------------------------------------------------------------ server controls */
@@ -566,6 +670,7 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 
 /** What the Server section of the settings says and which buttons work. */
 function renderServerBox(message) {
+  els.serverBox.hidden = state.ai.provider !== 'server';
   const info = state.serverInfo;
   const managed = Boolean(info?.managed);
   let text;

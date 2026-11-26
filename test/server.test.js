@@ -2,10 +2,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createApp } from '../server/src/app.js';
 import { loadConfig, DEFAULT_EXTENSION_ID } from '../server/src/config.js';
-import { callGemini, UpstreamError } from '../server/src/gemini.js';
+import { callGemini, UpstreamError } from '../extension/lib/ai/gemini.js';
 import {
   buildGeminiBody, buildNameBody, normalizeName, normalizePlan, parseNameRequest, parsePlanRequest, safeUrl,
-} from '../server/src/plan.js';
+} from '../extension/lib/ai/core.js';
 import { isValidKeyFormat } from '../server/src/keychain.js';
 import { RateLimiter } from '../server/src/security.js';
 

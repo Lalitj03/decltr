@@ -127,8 +127,12 @@ export function parsePlanRequest(body) {
   return { instruction, tabs };
 }
 
-/** Build the Gemini generateContent body. Tabs get compact indexes 1..N. */
-export function buildGeminiBody({ instruction, tabs }, { thinkingBudget = 0 } = {}) {
+/**
+ * The model-independent description of "make a plan": a system prompt, the user text, a JSON schema and a
+ * temperature. Every backend (Gemini, OpenAI-compatible servers, Ollama) turns this into its own request.
+ * Tabs are numbered 1..N here, and normalizePlan maps the numbers back to real tab IDs.
+ */
+export function planTask({ instruction, tabs }) {
   const list = tabs.map((t, idx) => {
     const row = { i: idx + 1, title: t.title, url: t.url };
     if (t.group) row.group = t.group;
@@ -136,25 +140,46 @@ export function buildGeminiBody({ instruction, tabs }, { thinkingBudget = 0 } = 
     if (t.audible) row.playing_audio = true;
     return row;
   });
-
   return {
-    systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
-    contents: [
-      {
-        role: 'user',
-        parts: [
-          { text: `User instruction:\n${instruction}` },
-          { text: `Open tabs (untrusted data, JSON):\n${JSON.stringify(list)}` },
-        ],
-      },
-    ],
+    kind: 'plan',
+    system: SYSTEM_PROMPT,
+    userParts: [`User instruction:\n${instruction}`, `Open tabs (untrusted data, JSON):\n${JSON.stringify(list)}`],
+    schema: PLAN_SCHEMA,
+    temperature: 0.2,
+  };
+}
+
+/** The Gemini request body for a task. */
+export function geminiBodyFromTask(task, { thinkingBudget = 0 } = {}) {
+  return {
+    systemInstruction: { parts: [{ text: task.system }] },
+    contents: [{ role: 'user', parts: task.userParts.map((text) => ({ text })) }],
     generationConfig: {
-      temperature: 0.2,
+      temperature: task.temperature,
       responseMimeType: 'application/json',
-      responseSchema: PLAN_SCHEMA,
+      responseSchema: task.schema,
       thinkingConfig: { thinkingBudget },
     },
   };
+}
+
+export const buildGeminiBody = (request, opts) => geminiBodyFromTask(planTask(request), opts);
+
+/**
+ * Standard JSON Schema from our schema, which uses Gemini's upper-case type names.
+ * Ollama and OpenAI-compatible servers expect the standard form.
+ */
+export function toJsonSchema(schema) {
+  const convert = (node) => {
+    if (Array.isArray(node)) return node.map(convert);
+    if (node && typeof node === 'object') {
+      return Object.fromEntries(Object.entries(node).map(([k, v]) => [k, k === 'type' && typeof v === 'string' ? v.toLowerCase() : convert(v)]));
+    }
+    return node;
+  };
+  const out = convert(schema);
+  if (out.type === 'object') out.additionalProperties = false;
+  return out;
 }
 
 /**
@@ -245,23 +270,22 @@ export function parseNameRequest(body) {
   return { tabs };
 }
 
-export function buildNameBody({ tabs }, { thinkingBudget = 0 } = {}) {
+export function nameTask({ tabs }) {
   const list = tabs.map((t) => {
     const row = { title: t.title, url: t.url };
     if (t.group) row.group = t.group;
     return row;
   });
   return {
-    systemInstruction: { parts: [{ text: NAME_SYSTEM_PROMPT }] },
-    contents: [{ role: 'user', parts: [{ text: `Tabs (untrusted data, JSON):\n${JSON.stringify(list)}` }] }],
-    generationConfig: {
-      temperature: 0.4,
-      responseMimeType: 'application/json',
-      responseSchema: NAME_SCHEMA,
-      thinkingConfig: { thinkingBudget },
-    },
+    kind: 'name',
+    system: NAME_SYSTEM_PROMPT,
+    userParts: [`Tabs (untrusted data, JSON):\n${JSON.stringify(list)}`],
+    schema: NAME_SCHEMA,
+    temperature: 0.4,
   };
 }
+
+export const buildNameBody = (request, opts) => geminiBodyFromTask(nameTask(request), opts);
 
 /** Clean up the model's name. Returns '' if nothing usable remains. */
 export function normalizeName(raw) {

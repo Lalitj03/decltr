@@ -8,7 +8,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { launchChromePipe } from './cdp-pipe.mjs';
 import { buildCases } from './cases.mjs';
-import { buildGeminiBody, normalizePlan, parsePlanRequest, PLAN_SCHEMA } from '../../server/src/plan.js';
+import { buildGeminiBody, normalizePlan, parsePlanRequest, PLAN_SCHEMA } from '../../extension/lib/ai/core.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const PROFILE = join(homedir(), 'Library/Caches/decltr-nano-lab-profile'); // same profile: the model is already downloaded

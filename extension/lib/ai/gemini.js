@@ -1,17 +1,12 @@
-import { redact } from './security.js';
+import { redact } from './redact.js';
+import { UpstreamError } from './errors.js';
+
+export { UpstreamError };
 
 const ENDPOINTS = {
   vertex: 'https://aiplatform.googleapis.com/v1/publishers/google/models/',
   gemini: 'https://generativelanguage.googleapis.com/v1beta/models/',
 };
-
-export class UpstreamError extends Error {
-  constructor(code, message, status = 502) {
-    super(message);
-    this.code = code;
-    this.status = status;
-  }
-}
 
 /**
  * Call Gemini's generateContent and return the parsed JSON the model produced.

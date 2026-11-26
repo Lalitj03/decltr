@@ -1,0 +1,9 @@
+{
+  "manifest_version": 3,
+  "name": "Decltr Origin-rewrite lab (throwaway)",
+  "version": "0.0.1",
+  "description": "Test-only. Checks whether an extension can make a local model server accept its requests.",
+  "minimum_chrome_version": "116",
+  "permissions": ["declarativeNetRequestWithHostAccess"],
+  "host_permissions": ["http://127.0.0.1/*", "http://localhost/*"]
+}

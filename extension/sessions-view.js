@@ -1,6 +1,6 @@
 import { h, icon } from './ui.js';
 import { snapshot } from './lib/tabs.js';
-import { suggestName } from './lib/api.js';
+import { nameWithAI } from './lib/ai/index.js';
 import { undoPlan } from './lib/actions.js';
 import {
   buildSession, defaultSessionName, describeSession, loadSessions, renameSession, saveableTabs, saveSession,
@@ -16,7 +16,8 @@ const formatDate = (ms) =>
 const nameInput = (session) => session.tabs.map((t) => ({ title: t.title, url: t.url, group: t.g >= 0 ? session.groups[t.g]?.title : undefined }));
 
 /** The "Sessions" tab: save this window, name sessions, and open them in any window. */
-export function createSessionsView({ els, getSettings }) {
+export function createSessionsView({ els, getSettings, getAiConfig }) {
+  const suggestName = (tabs) => nameWithAI(tabs, getAiConfig());
   const state = { busy: false, nameEdited: false, confirmId: null, confirmTimer: null, expanded: new Set(), editingId: null, lastSig: '', deferred: false };
 
   const windowSnapshot = () => snapshot({ includePinned: getSettings().includePinned, limit: Infinity });
