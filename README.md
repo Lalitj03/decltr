@@ -2,34 +2,59 @@
 
 Tell Chrome how to tidy your tabs in plain English. Decltr can **group**, **ungroup**, **close**, **move to a new window** and **bookmark** the tabs in a window. It shows a plan first, and you can **undo** it afterwards.
 
+Decltr works with the AI model you choose: **Google Gemini**, **Ollama** (fully on your computer), or **any OpenAI-compatible service** (OpenAI, OpenRouter, Groq, LM Studio, llama.cpp, vLLM and others). There is nothing to host and nothing to install besides the extension.
+
 ```
-Chrome side panel  ──►  Decltr server (127.0.0.1:47821)  ──►  Google Gemini
- (extension/)            (server/, holds the API key)
+Chrome side panel  ──►  the model you chose (Gemini, Ollama, OpenAI-compatible)
 ```
 
-Nothing is hosted anywhere. A small server runs on your own computer and holds your API key, so the key never enters the browser.
+An optional [local server](#the-optional-local-server-advanced) can hold your key in the macOS Keychain instead, so it never enters the browser.
 
 ## Quick start
 
-You need **Chrome 116+**, **Node 20+** (nothing to `npm install`) and a Google API key (see "Which key?" below). The steps are written for **macOS**, which is the only system I have tested.
-
-```bash
-git clone <this repo> && cd <the folder>
-
-npm run set-key           # paste your key (the input is hidden). It is stored in your Keychain.
-npm run server:install    # starts the server now, in the background, and at every login
-```
-
-Then load the extension:
+You need **Chrome 116+** and one of the models below. Load the extension:
 
 1. Open `chrome://extensions` and turn on **Developer mode**.
 2. Click **Load unpacked** and choose the `extension/` folder.
 3. Pin the Decltr icon and click it to open the side panel.
 
+The panel then asks how Decltr should think. Pick one:
+
+| Choice | What you do | Where your tab titles go |
+| --- | --- | --- |
+| **Google Gemini** | Paste an API key from Google AI Studio. | To Google |
+| **Ollama** | Install [Ollama](https://ollama.com), run `ollama pull <model>`, then pick the model in the panel. | Nowhere. They stay on your computer. |
+| **Another service** | Enter the service's address (for example `https://api.groq.com/openai/v1`), a key and a model name. | To that service |
+
+Chrome asks you to allow access to the address you chose, and to nothing else. Keys and settings are kept in this browser profile only (`chrome.storage.local`). They are never synced and never sent anywhere except to the model you chose.
+
+The on-device quick actions and sessions work without any model. Only the AI actions need one.
+
+**Ollama notes.** Ollama normally answers `403` to browser extensions. Decltr works around that itself, with a rule that sets the `Origin` header on requests to the Ollama address you entered, and only those. You do not need to set `OLLAMA_ORIGINS`. If your Ollama still answers 403, run it with `OLLAMA_ORIGINS=chrome-extension://* ollama serve`. Decltr asks Ollama for a context window sized to the request, because Ollama silently cuts off long prompts at its small default. Small models make more mistakes with plans, so always read the plan before pressing Apply. I have not yet tested against a real Ollama install, only a stand-in that behaves like one.
+
+**OpenAI-compatible notes.** Decltr asks for a JSON schema first and falls back to plain JSON mode, then to a plain request, if the service rejects it. The key is optional for local servers such as LM Studio.
+
+## The optional local server (advanced)
+
+Choose **Decltr server (advanced)** in Settings → AI model to use a small Node server that runs on your computer and keeps a Gemini or Vertex key in the macOS Keychain. The key never enters the browser.
+
+```
+Chrome side panel  ──►  Decltr server (127.0.0.1:47821)  ──►  Google Gemini
+ (extension/)            (server/, holds the API key)
+```
+
+You need **Node 20+** (nothing to `npm install`). The steps are written for **macOS**, which is the only system I have tested.
+
+```bash
+git clone https://github.com/Lalitj03/decltr && cd decltr
+
+npm run set-key           # paste your key (the input is hidden). It is stored in your Keychain.
+npm run server:install    # starts the server now, in the background, and at every login
+```
+
 The status pill at the top of the panel should say **Ready**. If it says "Server offline" or "No API key", run `npm run server:status`, which tells you what is missing.
 
-The extension ID is pinned, so the server only accepts requests from this extension.
-The on-device quick actions and sessions work without the server or a key. Only the AI actions need them.
+The server only accepts requests from the Decltr extension. If you installed Decltr from the Chrome Web Store, its ID differs from the one pinned for development, so add it with `DECLTR_EXTENSION_ID` (see Configuration).
 
 ### Which key?
 
@@ -100,7 +125,7 @@ Each plan lists its actions with checkboxes. Expand an action to drop single tab
 
 | Quick action | Runs |
 | --- | --- |
-| Group by topic, Split off leisure, Full tidy-up, Regroup from scratch | AI (Gemini) |
+| Group by topic, Split off leisure, Full tidy-up, Regroup from scratch | AI (your chosen model) |
 | Group by site, Close duplicates, Bookmark & clear, Ungroup all | On-device, nothing is sent anywhere |
 
 **Managing groups.** The start screen lists the tab groups in the window. **Ungroup** dissolves a group and keeps its tabs open. **Close** deletes the group together with its tabs. Both show a plan first and can be undone. Unnamed groups are listed too. With the AI you can say things like "ungroup everything and regroup by project" or "delete the Shopping group".
@@ -117,12 +142,12 @@ The **Sessions** tab saves a window as a named workspace and reopens it later, i
 - **Live sessions.** When you open a session into a new window (or into a window that has no real tabs), that window follows the session: tabs you open, close, move, pin, regroup or navigate are saved back to it, a couple of seconds after each change. A card shows a green **Live** line with **Stop syncing**. Opening a live session again switches to its window instead of making a copy. The "Keep opened sessions up to date" setting turns the whole feature off.
 - Syncing is careful by design: a window that is closing is never saved halfway, a window with no real tabs never empties a session, Save & clear and Undo stop the window from following the session first, and a deleted session is never recreated. The flip side is that closing a tab in a live window removes it from the session. Use **Stop syncing** if you want to experiment without changing the saved one. Adding a session to a window that already has tabs does not make that window live.
 - Pinned tabs are saved and cleared only if "Include pinned tabs" is on in settings, like everywhere else in Decltr.
-- Sessions live in this browser profile's extension storage (`chrome.storage.local`). They are not synced and are not sent to the Decltr server. The only exception is optional AI naming, which sends the session's tab titles and addresses (without query strings) to Gemini, like any other AI action. They include full URLs, so anything in a URL is stored as is.
+- Sessions live in this browser profile's extension storage (`chrome.storage.local`). They are not synced and are not sent anywhere. The only exception is optional AI naming, which sends the session's tab titles and addresses (without query strings) to your chosen model, like any other AI action. They include full URLs, so anything in a URL is stored as is.
 - Pages that cannot be reopened by an extension (`javascript:`, `data:`, other extensions' pages) and blank tabs are not saved.
 
 Bookmarks go into **Other bookmarks → Decltr → \<folder\>**. Pinned tabs are left alone unless you enable them in settings.
 
-## How the key is protected
+## How the key is protected (local server)
 
 - On macOS it is read from the Keychain by the server and held in memory. It is never sent to the extension, written to a file or logged, and it is scrubbed from error messages.
 - The server binds to `127.0.0.1` only. It rejects any request whose `Origin` is not the Decltr extension, which blocks web pages you visit from using it. It also checks the `Host` header against DNS rebinding.
@@ -132,11 +157,11 @@ Bookmarks go into **Other bookmarks → Decltr → \<folder\>**. Pinned tabs are
 
 ## Privacy
 
-For AI actions, tab titles and URLs (origin and path only; query strings and fragments are removed) are sent to Google (Gemini, through Vertex AI or the Gemini API, depending on your key). Page titles are treated as untrusted data: the model's output is validated twice, can only reference your own tab IDs, and cannot create URLs. Nothing changes until you press Apply.
+For AI actions, tab titles and URLs (origin and path only; query strings and fragments are removed in the extension, before anything is sent) go to the model you chose: Google, another service, the Decltr server, or only your own computer with Ollama. Decltr has no server of its own and collects nothing. Page titles are treated as untrusted data: the model's output is validated twice, can only reference your own tab IDs, and cannot create URLs. Nothing changes until you press Apply.
 
 ## Configuration
 
-Environment variables for the server:
+Environment variables for the optional server:
 
 | Variable | Default |
 | --- | --- |
@@ -155,3 +180,7 @@ npm run dev:ui   # preview the side panel in a normal tab: http://localhost:5173
                  #   ?server=offline | nokey | billing    &tabs=many
 npm run icons    # regenerate extension/icons
 ```
+
+## Licence
+
+[MIT](LICENSE). Decltr is an independent hobby project. It is not affiliated with or endorsed by Google, Ollama, OpenAI or any other model provider. Product names belong to their owners.
