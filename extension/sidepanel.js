@@ -1,7 +1,7 @@
 import { h, icon } from './ui.js';
 import { ApiError, checkHealth, controlServer, serverIsCurrent } from './lib/api.js';
 import { planWithAI, nameWithAI } from './lib/ai/index.js';
-import { AI_KEY, isConfigured, loadAiConfig, PROVIDER_NAMES } from './lib/ai/config.js';
+import { AI_KEY, hasConsent, isConfigured, loadAiConfig, PROVIDER_NAMES } from './lib/ai/config.js';
 import { hasAccess, requestAccess, syncOriginRule } from './lib/ai/network.js';
 import { createAiSettings } from './ai-settings.js';
 import { snapshot, toApiTabs } from './lib/tabs.js';
@@ -20,6 +20,7 @@ const els = {
   thread: $('thread'), welcome: $('welcome'), welcomeSub: $('welcomeSub'), presets: $('presets'), examples: $('examples'),
   form: $('form'), input: $('input'), send: $('send'), chips: $('chips'), status: $('status'), statusText: $('statusText'),
   aiBox: $('aiBox'), serverBox: $('serverBox'), aiState: $('aiState'), aiProvider: $('aiProvider'), aiHelp: $('aiHelp'), aiSave: $('aiSave'), aiResult: $('aiResult'),
+  aiConsent: $('aiConsent'), aiConsentTitle: $('aiConsentTitle'), aiConsentText: $('aiConsentText'), aiConsentYes: $('aiConsentYes'), aiConsentNo: $('aiConsentNo'),
   googleKey: $('googleKey'), googleModel: $('googleModel'), googleForget: $('googleForget'), ollamaUrl: $('ollamaUrl'), ollamaModel: $('ollamaModel'), ollamaModels: $('ollamaModels'), ollamaFind: $('ollamaFind'),
   openaiUrl: $('openaiUrl'), openaiKey: $('openaiKey'), openaiModel: $('openaiModel'), openaiForget: $('openaiForget'),
   serverState: $('serverState'), serverHelp: $('serverHelp'), restartBtn: $('restartBtn'), stopBtn: $('stopBtn'),
@@ -103,6 +104,7 @@ async function init() {
 const aiSettings = createAiSettings({
   els: {
     provider: els.aiProvider, help: els.aiHelp, save: els.aiSave, result: els.aiResult, state: els.aiState,
+    consent: els.aiConsent, consentTitle: els.aiConsentTitle, consentText: els.aiConsentText, consentYes: els.aiConsentYes, consentNo: els.aiConsentNo,
     googleKey: els.googleKey, googleModel: els.googleModel, googleForget: els.googleForget,
     ollamaUrl: els.ollamaUrl, ollamaModel: els.ollamaModel, ollamaModels: els.ollamaModels, ollamaFind: els.ollamaFind,
     openaiUrl: els.openaiUrl, openaiKey: els.openaiKey, openaiModel: els.openaiModel, openaiForget: els.openaiForget,
@@ -587,10 +589,11 @@ async function refreshHealth() {
   // A model that runs from the extension has no server to ask. It is ready when it is set up and Chrome allows the address.
   if (state.ai.provider !== 'server') {
     state.serverInfo = null;
-    const ready = isConfigured(state.ai) && (await hasAccess(state.ai));
+    const agreed = isConfigured(state.ai) && hasConsent(state.ai);
+    const ready = agreed && (await hasAccess(state.ai));
     setHealth(ready ? 'ok' : 'setup');
     renderServerBox();
-    showWelcomeSetup(ready ? null : isConfigured(state.ai) ? accessCard() : chooserCard());
+    showWelcomeSetup(ready ? null : agreed ? accessCard() : chooserCard());
     return;
   }
   try {
@@ -599,13 +602,14 @@ async function refreshHealth() {
     setHealth(!info.keyConfigured ? 'warn' : serverIsCurrent(info) ? 'ok' : 'outdated');
   } catch {
     state.serverInfo = null;
-    setHealth('off');
+    // Someone who never chose the server is not missing one: they have not picked a model yet.
+    setHealth(state.aiChosen ? 'off' : 'setup');
   }
   renderServerBox();
   // Keep a setup hint visible on the welcome screen when AI is not usable.
   const needsHelp = state.health !== 'ok' && state.health !== 'checking' && state.health !== 'outdated';
   // Someone who has not chosen a model yet gets the choices, not instructions for one particular server.
-  const card = !needsHelp ? null : state.health === 'off' ? (state.aiChosen ? setupCard('offline') : chooserCard()) : setupCard('no_key');
+  const card = !needsHelp ? null : state.health === 'setup' ? chooserCard() : state.health === 'off' ? setupCard('offline') : setupCard('no_key');
   showWelcomeSetup(card);
 }
 

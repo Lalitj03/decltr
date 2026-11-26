@@ -7,3 +7,6 @@ node_modules/
 .playwright-mcp/
 # Screenshots taken while testing the UI
 dev/shot-*.png
+
+# Store build output (npm run package)
+dist/

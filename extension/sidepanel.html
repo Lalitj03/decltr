@@ -86,6 +86,14 @@
           </div>
 
           <p id="aiHelp" class="server-help"></p>
+          <div id="aiConsent" class="ai-consent" role="alertdialog" aria-labelledby="aiConsentTitle" aria-describedby="aiConsentText" hidden>
+            <strong id="aiConsentTitle"></strong>
+            <p id="aiConsentText"></p>
+            <div class="row">
+              <button id="aiConsentYes" class="btn small" type="button">Agree and continue</button>
+              <button id="aiConsentNo" class="btn small ghost" type="button">Cancel</button>
+            </div>
+          </div>
           <div class="row"><button id="aiSave" class="btn small" type="button">Save and test</button></div>
           <p id="aiResult" class="ai-result" role="status"></p>
         </div>

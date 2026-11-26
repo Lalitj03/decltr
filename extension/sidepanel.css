@@ -88,6 +88,9 @@ button { cursor: pointer; }
 .ai-box .link-btn { align-self: flex-start; margin-top: 6px; }
 .ai-result { margin: 8px 0 0; font-size: 12.5px; overflow-wrap: anywhere; }
 .ai-result:empty { display: none; }
+.ai-consent { margin: 10px 0 0; padding: 10px 12px; border: 1px solid var(--accent); border-radius: 10px; background: var(--accent-soft); }
+.ai-consent strong { display: block; font-size: 13px; margin-bottom: 4px; }
+.ai-consent p { margin: 0 0 8px; font-size: 12.5px; line-height: 1.45; }
 .ai-result.ok { color: var(--ok); }
 .ai-result.bad { color: var(--danger); }
 .ai-result.busy { color: var(--muted); }

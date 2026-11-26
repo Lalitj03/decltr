@@ -26,7 +26,7 @@ The panel then asks how Decltr should think. Pick one:
 | **Ollama** | Install [Ollama](https://ollama.com), run `ollama pull <model>`, then pick the model in the panel. | Nowhere. They stay on your computer. |
 | **Another service** | Enter the service's address (for example `https://api.groq.com/openai/v1`), a key and a model name. | To that service |
 
-Chrome asks you to allow access to the address you chose, and to nothing else. Keys and settings are kept in this browser profile only (`chrome.storage.local`). They are never synced and never sent anywhere except to the model you chose.
+Before anything can be sent to another computer, Decltr says what it sends and where, and waits for you to press **Agree and continue**. It asks once for each service, and again if you forget the key. Ollama on your own computer never asks, because nothing leaves it. Chrome then asks you to allow access to that one address, and to nothing else. Keys and settings are kept in this browser profile only (`chrome.storage.local`). They are never synced and never sent anywhere except to the model you chose.
 
 The on-device quick actions and sessions work without any model. Only the AI actions need one.
 
@@ -179,6 +179,7 @@ npm test         # server and extension logic, using a mock of the Chrome APIs
 npm run dev:ui   # preview the side panel in a normal tab: http://localhost:5173/panel
                  #   ?server=offline | nokey | billing    &tabs=many
 npm run icons    # regenerate extension/icons
+npm run package  # dist/decltr-<version>.zip for the Chrome Web Store, without the development "key"
 ```
 
 ## Licence

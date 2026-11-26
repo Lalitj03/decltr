@@ -231,7 +231,7 @@ test('privacy: what is sent to a model has no query strings, fragments or real t
   for (const config of [
     ollamaConfig,
     { provider: 'openai', openai: { baseUrl: 'http://localhost:1234/v1', apiKey: '', model: 'm' } },
-    { provider: 'google', google: { apiKey: GEMINI_KEY, model: 'gemini-3.5-flash-lite' } },
+    { provider: 'google', google: { apiKey: GEMINI_KEY, model: 'gemini-3.5-flash-lite' }, consent: ['https://generativelanguage.googleapis.com'] },
   ]) {
     const answer = config.provider === 'google' ? geminiAnswer({ summary: '', actions: [] }) : config.provider === 'openai' ? openAiAnswer({ summary: '', actions: [] }) : ollamaAnswer({ summary: '', actions: [] });
     const { calls, fetchImpl } = scripted(answer);
@@ -338,4 +338,34 @@ test('which address Decltr must be allowed to reach, and what is still missing',
   assert.equal(isConfigured({ provider: 'ollama', ollama: { model: '' } }), false);
   assert.match(missingSetup({ provider: 'google', google: { apiKey: 'x'.repeat(30), model: 'm' } }), /AIza.*AQ\./s);
   assert.equal(missingSetup({ provider: 'google', google: { apiKey: GEMINI_KEY, model: 'm' } }), '');
+});
+
+test('consent: nothing goes to another computer until the person agreed to that exact destination', async () => {
+  const { consentTarget, hasConsent, normalizeAiConfig } = await import('../extension/lib/ai/config.js');
+  const google = { provider: 'google', google: { apiKey: GEMINI_KEY, model: 'gemini-3.5-flash-lite' } };
+  const groq = { provider: 'openai', openai: { baseUrl: 'https://api.groq.com/openai/v1', apiKey: 'gsk_testtesttest', model: 'm' } };
+
+  // Asked for: Google, any online service, and an Ollama or server elsewhere on the network.
+  assert.equal(consentTarget(google), 'https://generativelanguage.googleapis.com');
+  assert.equal(consentTarget({ ...google, google: { apiKey: VERTEX_KEY, model: 'm' } }), 'https://aiplatform.googleapis.com');
+  assert.equal(consentTarget(groq), 'https://api.groq.com');
+  assert.equal(consentTarget({ provider: 'ollama', ollama: { baseUrl: 'http://192.168.1.20:11434', model: 'm' } }), 'http://192.168.1.20:11434');
+  // Not asked for: nothing leaves this computer, or the hand-set-up local server.
+  for (const local of ['http://127.0.0.1:11434', 'http://localhost:11434', 'http://[::1]:11434']) {
+    assert.equal(consentTarget({ provider: 'ollama', ollama: { baseUrl: local, model: 'm' } }), '', local);
+  }
+  assert.equal(consentTarget({ provider: 'openai', openai: { baseUrl: 'http://localhost:1234/v1', model: 'm' } }), '');
+  assert.equal(consentTarget({ provider: 'server' }), '');
+
+  // Without agreement, the request is refused before any network call, for plans and for naming.
+  const { calls, fetchImpl } = scripted(geminiAnswer({ summary: '', actions: [] }));
+  await assert.rejects(planWithAI({ instruction: 'x', tabs: TABS }, google, { fetchImpl }), (e) => e.code === 'no_consent' && /Google/.test(e.message));
+  await assert.rejects(nameWithAI([{ title: 'a', url: 'https://a.com' }], google, { fetchImpl }), { code: 'no_consent' });
+  // Agreeing to one service does not cover another.
+  await assert.rejects(planWithAI({ instruction: 'x', tabs: TABS }, { ...groq, consent: ['https://generativelanguage.googleapis.com'] }, { fetchImpl }), { code: 'no_consent' });
+  assert.equal(calls.length, 0, 'nothing was sent');
+  assert.equal(hasConsent({ ...groq, consent: ['https://api.groq.com'] }), true);
+
+  // Stored junk is dropped.
+  assert.deepEqual(normalizeAiConfig({ consent: ['https://a.com', 'https://a.com', 'javascript:x', 'https://a.com/path', 5] }).consent, ['https://a.com']);
 });

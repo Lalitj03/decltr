@@ -77,7 +77,38 @@ export function normalizeAiConfig(raw) {
       model: model(r.ollama?.model, ''),
       maxContext: Number.isInteger(r.ollama?.maxContext) && r.ollama.maxContext >= 2_048 && r.ollama.maxContext <= 131_072 ? r.ollama.maxContext : d.ollama.maxContext,
     },
+    // The places the person agreed to send tab details to, as origins ("https://api.groq.com").
+    consent: [...new Set((Array.isArray(r.consent) ? r.consent : []).filter((o) => typeof o === 'string' && ORIGIN.test(o)))].slice(0, 20),
   };
+}
+const ORIGIN = /^https?:\/\/[^/?#\s]{1,255}$/;
+// Only this computer. A server elsewhere on the network is somewhere else, so it needs consent like any service.
+const LOOPBACK = /^(localhost|127\.\d+\.\d+\.\d+|\[::1\])$/i;
+
+/**
+ * Where tab details would go for the chosen provider, if that is anywhere other than this computer.
+ * Returns the origin that needs the person's agreement, or '' when nothing leaves the computer.
+ * The Decltr server is set up by hand in a terminal with its own key, so it is not asked about here.
+ */
+export function consentTarget(config) {
+  const c = normalizeAiConfig(config);
+  if (c.provider === 'server') return '';
+  const [pattern] = requiredOrigins(c);
+  if (!pattern) return '';
+  const origin = pattern.replace(/\/\*$/, '');
+  return LOOPBACK.test(new URL(origin).hostname) ? '' : origin;
+}
+/** True when nothing leaves the computer, or the person agreed to this destination. */
+export function hasConsent(config) {
+  const c = normalizeAiConfig(config);
+  const target = consentTarget(c);
+  return !target || c.consent.includes(target);
+}
+/** Who receives the data, in words: "Google (generativelanguage.googleapis.com)". */
+export function describeDestination(config) {
+  const c = normalizeAiConfig(config);
+  const host = new URL(consentTarget(c) || 'http://localhost').host;
+  return c.provider === 'google' ? `Google (${host})` : host;
 }
 
 /** True when the chosen provider has everything it needs. For the server we cannot know until we ask it. */

@@ -1,6 +1,6 @@
 import { listOllamaModels } from './lib/ai/backends.js';
 import {
-  cleanBaseUrl, DEFAULT_AI_CONFIG, isConfigured, missingSetup, normalizeAiConfig, PROVIDER_NAMES, requiredOrigins, saveAiConfig,
+  cleanBaseUrl, consentTarget, DEFAULT_AI_CONFIG, describeDestination, hasConsent, isConfigured, missingSetup, normalizeAiConfig, PROVIDER_NAMES, requiredOrigins, saveAiConfig,
 } from './lib/ai/config.js';
 import { testProvider } from './lib/ai/index.js';
 import { requestAccess, syncOriginRule } from './lib/ai/network.js';
@@ -63,6 +63,7 @@ export function createAiSettings({ els, getConfig, onSaved }) {
       google: { apiKey: els.googleKey.value.trim() || base.google.apiKey, model: els.googleModel.value.trim() || DEFAULT_AI_CONFIG.google.model },
       openai: { baseUrl: els.openaiUrl.value, apiKey: els.openaiKey.value.trim() || base.openai.apiKey, model: els.openaiModel.value.trim() },
       ollama: { baseUrl: els.ollamaUrl.value, model: els.ollamaModel.value.trim(), maxContext: base.ollama.maxContext },
+      consent: base.consent,
     });
   }
 
@@ -83,15 +84,44 @@ export function createAiSettings({ els, getConfig, onSaved }) {
     return false;
   }
 
-  async function saveAndTest() {
+  /**
+   * Before tab details can go to another computer, say exactly what is sent and where, and wait for a click on
+   * "Agree and continue". Shown once per destination, so a new key for the same service does not ask again,
+   * but a different service does. Ollama on this computer never asks, because nothing leaves it.
+   */
+  function showConsent(config) {
+    const where = describeDestination(config);
+    els.consentTitle.textContent = `Send tab details to ${where}?`;
+    els.consentText.textContent =
+      `When you use an AI action or AI naming, Decltr sends your request and the titles and addresses of the tabs involved ` +
+      `(without anything after "?" or "#") to ${where}. That service's own privacy policy applies to them. ` +
+      `Nothing is sent until you use an AI action, and quick actions marked On-device never send anything. ` +
+      `Decltr has no server of its own and collects nothing. You can change this at any time by choosing another model or forgetting the key.`;
+    els.consent.hidden = false;
+    els.save.hidden = true;
+    setResult('');
+    els.consentYes.focus();
+  }
+
+  function hideConsent() {
+    els.consent.hidden = true;
+    els.save.hidden = false;
+  }
+
+  async function saveAndTest({ agreed = false } = {}) {
     els.save.disabled = true;
     setResult('Checking…', 'busy');
     try {
       const mistake = typedMistake(els.provider.value);
       if (mistake) return setResult(mistake, 'bad');
-      const config = readForm();
+      let config = readForm();
       const problem = missingSetup(config);
       if (problem) return setResult(problem, 'bad');
+      if (!hasConsent(config)) {
+        if (!agreed) return showConsent(config);
+        config = { ...config, consent: [...config.consent, consentTarget(config)] };
+      }
+      hideConsent();
 
       // Chrome only shows its permission prompt in response to a click, so this must come before the other awaits.
       if (!(await ask(config))) return;
@@ -134,7 +164,9 @@ export function createAiSettings({ els, getConfig, onSaved }) {
 
   async function forget(provider) {
     const c = normalizeAiConfig(getConfig());
-    const next = { ...c, [provider]: { ...c[provider], apiKey: '' } };
+    // Forgetting the key also withdraws the agreement, so entering a key again asks again.
+    const withdrawn = consentTarget({ ...c, provider });
+    const next = { ...c, [provider]: { ...c[provider], apiKey: '' }, consent: c.consent.filter((o) => o !== withdrawn) };
     const saved = await saveAiConfig(next);
     onSaved(saved);
     render(saved);
@@ -143,9 +175,16 @@ export function createAiSettings({ els, getConfig, onSaved }) {
 
   els.provider.addEventListener('change', () => {
     showFields(els.provider.value);
+    hideConsent();
     setResult('');
   });
-  els.save.addEventListener('click', saveAndTest);
+  els.save.addEventListener('click', () => saveAndTest());
+  // The click on Agree is also what lets Chrome show its permission prompt next.
+  els.consentYes.addEventListener('click', () => saveAndTest({ agreed: true }));
+  els.consentNo.addEventListener('click', () => {
+    hideConsent();
+    setResult('Not saved. Nothing was sent.', '');
+  });
   els.ollamaFind.addEventListener('click', findModels);
   els.googleForget.addEventListener('click', () => forget('google'));
   els.openaiForget.addEventListener('click', () => forget('openai'));

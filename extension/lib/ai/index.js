@@ -3,7 +3,7 @@
 
 import { checkHealth, requestPlan, suggestName as serverSuggestName } from '../api.js';
 import { googleBackend, ollamaBackend, openAiBackend } from './backends.js';
-import { isConfigured, missingSetup, normalizeAiConfig, PROVIDER_NAMES } from './config.js';
+import { describeDestination, hasConsent, isConfigured, missingSetup, normalizeAiConfig, PROVIDER_NAMES } from './config.js';
 import { UpstreamError } from './errors.js';
 import { nameTask, normalizeName, normalizePlan, parsePlanRequest, planTask } from './core.js';
 import { cleanText } from './core.js';
@@ -12,6 +12,10 @@ export function createBackend(config, { fetchImpl = fetch } = {}) {
   const c = normalizeAiConfig(config);
   const problem = missingSetup(c);
   if (problem) throw new UpstreamError('not_configured', problem, 400);
+  // Nothing goes to another computer unless the person agreed to that destination in settings.
+  if (!hasConsent(c)) {
+    throw new UpstreamError('no_consent', `Open Settings → AI model and press Save to agree to sending tab details to ${describeDestination(c)}.`, 400);
+  }
   switch (c.provider) {
     case 'google': return googleBackend({ ...c.google, fetchImpl });
     case 'openai': return openAiBackend({ ...c.openai, fetchImpl });
