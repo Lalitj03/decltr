@@ -6,8 +6,8 @@ Copy these into the [developer dashboard](https://chrome.google.com/webstore/dev
 
 **Name:** Decltr
 
-**Summary** (from the manifest, 104 characters):
-Tell Decltr how to tidy your tabs in plain English. Group, close, move to a new window or bookmark them.
+**Summary** (from the manifest, 127 characters):
+Tidy tabs in plain English: group, close, bookmark, save. Open source, no account. With local AI, nothing leaves your computer.
 
 **Category:** Workflow & Planning
 
@@ -16,7 +16,7 @@ Tell Decltr how to tidy your tabs in plain English. Group, close, move to a new 
 **Description:**
 
 ```
-Too many tabs? Tell Decltr what you want in plain English, and it tidies the current window for you.
+Tidy your tabs in plain English. Tell Decltr what you want, and it tidies the current window for you.
 
 • "Put everything about my Lisbon trip in one group"
 • "Bookmark all recipe tabs into a folder called Recipes and close them"
@@ -25,10 +25,15 @@ Too many tabs? Tell Decltr what you want in plain English, and it tidies the cur
 
 Decltr always shows its plan first. You can switch off any step or drop single tabs, then press Apply. Undo puts things back.
 
-WORKS WITH THE AI YOU CHOOSE
-• Google Gemini, with your own API key
-• Ollama, running on your own computer, so nothing leaves it
-• Any OpenAI-compatible service: OpenAI, OpenRouter, Groq, LM Studio, llama.cpp, vLLM and others
+INDEPENDENT AND OPEN SOURCE
+• No Decltr cloud, no account, no analytics, no ads. None of your data reaches the developer.
+• All of the code is public under the MIT licence: https://github.com/Lalitj03/decltr
+
+YOUR TABS GO ONLY WHERE YOU SEND THEM
+• A model on your own computer (Ollama, LM Studio, llama.cpp): nothing leaves your computer
+• Google Gemini or any OpenAI-compatible service (OpenAI, OpenRouter, Groq, vLLM), with your own key: your request and the titles and addresses of the tabs involved go to that service, with everything after "?" or "#" removed, and only after you agree
+• Your API key stays in this browser
+• Tab icons come from the browser itself, never from the sites
 
 NO AI NEEDED FOR
 • Group by site, close duplicates, bookmark and clear, ungroup all
@@ -42,17 +47,10 @@ BUILT FOR HUNDREDS OF TABS
 • Big sessions open without loading every tab, so opening 650 tabs does not run out of memory
 • A window with hundreds of tabs gets suggestions to make it lighter
 
-PRIVATE BY DESIGN
-• No account, no analytics, no server of its own.
-• Tab titles and addresses go only to the AI model you chose, and only when you use an AI action. Everything after "?" or "#" in an address is removed first.
-• Decltr asks before sending anything to another computer.
-• Your API key stays in this browser.
-• Open source under the MIT licence: https://github.com/Lalitj03/decltr
-
-Decltr is an independent project. It is not affiliated with or endorsed by Google, Ollama, OpenAI or any other AI provider.
+Decltr is an independent hobby project. It is not affiliated with or endorsed by Google, Ollama, OpenAI or any other AI provider.
 ```
 
-**Graphics:** `store/screenshot-1.png` to `store/screenshot-4.png` (1280x800), `store/promo-440x280.png`, icon `extension/icons/icon128.png`.
+**Graphics:** `store/screenshot-1.png` to `store/screenshot-5.png` (1280x800, the first one is about privacy), `store/promo-440x280.png`, marquee `store/promo-1400x560.png`, icon `extension/icons/icon128.png`.
 
 **Official URL / homepage:** https://github.com/Lalitj03/decltr
 
@@ -74,6 +72,7 @@ Decltr organizes the tabs in the current browser window (grouping, ungrouping, c
 | `tabGroups` | Creates, names, colors, ungroups and restores tab groups, which is the main thing Decltr does. |
 | `sidePanel` | Decltr's whole interface is a side panel next to the user's tabs. |
 | `storage` | Keeps the user's settings, saved sessions, undo information and the AI model settings they entered, locally in this browser. |
+| `favicon` | Shows each tab's icon in the panel from the browser's own icon store, so Decltr never loads icons from the sites themselves. |
 | `alarms` | Only when the user turns on sharing between browsers: checks every few minutes for sessions changed in their other browsers on the same computer, through the optional local Decltr server. |
 | `unlimitedStorage` | Saved sessions can hold thousands of tabs (people save windows with 650 tabs and archive old tabs), which can pass the browser's 10 MB storage limit. Everything stays in this browser. |
 | `declarativeNetRequestWithHostAccess` | Only when the user chooses Ollama: sets the Origin header on Decltr's own requests to the Ollama address the user entered, because Ollama refuses browser-extension origins by default. One rule, limited to that address and to Decltr's requests, removed when the user picks another model. |

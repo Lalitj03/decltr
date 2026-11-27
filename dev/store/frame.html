@@ -1,9 +1,10 @@
 <!doctype html>
-<!-- Store graphics. Served by `npm run dev:ui`:
-       http://localhost:5173/dev/store/frame.html?n=1   (1280x800 screenshots, n = 1 to 4)
-       http://localhost:5173/dev/store/frame.html?promo (440x280 promo tile)
-       http://localhost:5173/dev/store/frame.html?large (1400x560 large promo tile, Edge Add-ons)
-     The panel images come from screenshots of the dev preview (dev/store/panel-N.png, 440x800). -->
+<!-- Store graphics. `node dev/store/capture.mjs` renders all of them into store/. To look at one, run `npm run dev:ui`:
+       http://localhost:5173/dev/store/frame.html?n=1    (1280x800 screenshots, n = 1 to 5; 1 is about privacy)
+       http://localhost:5173/dev/store/frame.html?promo  (440x280 small promo tile)
+       http://localhost:5173/dev/store/frame.html?large  (1400x560 large promo tile, Edge Add-ons; also the README image)
+       http://localhost:5173/dev/store/frame.html?social (1280x640 GitHub social preview)
+     The panel images are screenshots of the dev preview (dev/store/panel-*.png, 440x800). Wording rules: store/BRAND.md. -->
 <html>
 <head>
 <meta charset="utf-8" />
@@ -12,7 +13,7 @@
   body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: #1b1b2f; }
   .shot { width: 1280px; height: 800px; display: flex; align-items: center; gap: 72px; padding: 0 96px;
     background: radial-gradient(circle at 15% 20%, #eef0ff, transparent 55%), linear-gradient(135deg, #f7f7fb, #f3ecff); overflow: hidden; }
-  .copy { flex: 1; }
+  .copy { flex: 1; min-width: 0; }
   .brand { display: flex; align-items: center; gap: 12px; font-weight: 700; font-size: 22px; margin-bottom: 40px; }
   .brand img { width: 40px; height: 40px; }
   h1 { font-size: 52px; line-height: 1.1; letter-spacing: -0.02em; margin-bottom: 24px; }
@@ -21,41 +22,90 @@
   .panel { width: 440px; height: 720px; border-radius: 18px; overflow: hidden; flex: none;
     box-shadow: 0 2px 6px rgb(20 20 50 / 8%), 0 24px 60px rgb(60 40 140 / 18%); background: #f7f7fb; }
   .panel img { width: 440px; display: block; }
+
+  /* Where tabs go: one row per kind of use, with where the data stays. */
+  .shot.privacy .brand { margin-bottom: 32px; }
+  .shot.privacy h1 { font-size: 50px; margin-bottom: 28px; }
+  .lanes { display: grid; gap: 12px; }
+  .lane { display: flex; align-items: center; gap: 16px; padding: 16px 18px; border-radius: 16px; background: #fff;
+    box-shadow: 0 1px 2px rgb(20 20 50 / 6%), 0 6px 18px rgb(60 40 140 / 8%); }
+  .lane-icon { width: 44px; height: 44px; flex: none; display: grid; place-items: center; border-radius: 12px; background: #eef0ff; color: #6366f1; }
+  .lane-text { flex: 1; min-width: 0; display: grid; gap: 3px; }
+  .lane-text b { font-size: 18px; }
+  .lane-text small { font-size: 15px; color: #6b6b84; }
+  .pill { flex: none; font-size: 14px; font-weight: 600; padding: 7px 12px; border-radius: 999px; white-space: nowrap; }
+  .pill.stay { color: #15803d; background: #ecfdf3; }
+  .pill.ask { color: #b45309; background: #fff7e6; }
+  .foot { margin-top: 22px; font-size: 18px; color: #4b4b66; }
+  .foot b { color: #1b1b2f; }
+
   .promo { width: 440px; height: 280px; display: flex; flex-direction: column; justify-content: center; padding: 0 36px;
     background: linear-gradient(135deg, #6366f1, #a855f7); color: #fff; }
   .promo .brand { margin: 0 0 18px; font-size: 34px; }
   .promo .brand img { width: 52px; height: 52px; background: #fff; border-radius: 12px; padding: 6px; }
-  .promo p { color: #fff; font-size: 21px; line-height: 1.35; }
+  .promo p { color: #fff; font-size: 23px; line-height: 1.3; font-weight: 600; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; }
+  .chips span { font-size: 14px; font-weight: 600; padding: 6px 11px; border-radius: 999px; background: rgb(255 255 255 / 18%);
+    border: 1px solid rgb(255 255 255 / 35%); color: #fff; }
+
   .large { width: 1400px; height: 560px; display: flex; align-items: center; gap: 80px; padding: 0 110px;
     background: linear-gradient(135deg, #6366f1, #a855f7); color: #fff; overflow: hidden; }
   .large .copy .brand { font-size: 44px; margin-bottom: 28px; }
   .large .copy .brand img { width: 72px; height: 72px; background: #fff; border-radius: 16px; padding: 8px; }
   .large h1 { color: #fff; font-size: 56px; margin-bottom: 18px; }
-  .large p { color: rgb(255 255 255 / 88%); font-size: 24px; }
+  .large p { color: rgb(255 255 255 / 90%); font-size: 24px; }
+  .large .chips { margin-top: 26px; }
+  .large .chips span { font-size: 17px; padding: 8px 14px; }
   .large .panel { height: 480px; margin-top: 80px; align-self: flex-start; }
+  .large.social { width: 1280px; height: 640px; gap: 64px; padding: 0 88px; }
+  .large.social .panel { height: 560px; }
 </style>
 </head>
 <body>
 <script>
   const q = new URLSearchParams(location.search);
   const icon = '/extension/icons/icon128.png';
-  const shots = {
-    1: ['Tidy your tabs <span>in plain English</span>', 'Say what you want. Decltr shows a plan you can check and adjust, applies it, and can undo it.'],
-    2: ['Save a window, <span>open it later</span>', 'Sessions keep tabs, groups and their names. Clear a window, then bring it back in any window.'],
-    3: ['Your choice <span>of AI</span>', 'Google Gemini with your own key, Ollama on your own computer, or any OpenAI-compatible service. Nothing hosted, no account.'],
-    4: ['Built for <span>hundreds of tabs</span>', 'Archive tabs you have not used in weeks, open big sessions without loading every tab, and let AI sort huge windows in parts.'],
+  const svg = (paths) => `<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${paths}</svg>`;
+  const ICONS = {
+    browser: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M6.5 6.5h.01M9.5 6.5h.01"/>',
+    laptop: '<rect x="5" y="5" width="14" height="10" rx="1.5"/><path d="M3 19h18"/>',
+    cloud: '<path d="M7.5 18a4.5 4.5 0 01-.6-8.96 5.5 5.5 0 0110.6-1.1A4.5 4.5 0 0117 18z"/>',
   };
-  if (q.has('large')) {
-    document.body.innerHTML = `<div class="large"><div class="copy"><div class="brand"><img src="${icon}" alt="">Decltr</div>
-      <h1>Tidy your tabs in plain English</h1><p>Gemini, Ollama or any OpenAI-compatible model. No account, nothing hosted.</p></div>
-      <div class="panel"><img src="/dev/store/panel-1.png" alt=""></div></div>`;
+  const lane = (iconName, title, detail, where, kind) =>
+    `<div class="lane"><span class="lane-icon">${svg(ICONS[iconName])}</span><div class="lane-text"><b>${title}</b><small>${detail}</small></div><span class="pill ${kind}">${where}</span></div>`;
+  const brand = `<div class="brand"><img src="${icon}" alt="">Decltr</div>`;
+  const panel = (file) => `<div class="panel"><img src="/dev/store/${file}" alt=""></div>`;
+  const chips = (...items) => `<div class="chips">${items.map((t) => `<span>${t}</span>`).join('')}</div>`;
+
+  const shots = {
+    1: {
+      title: 'Your tabs go only <span>where you send them</span>',
+      body: `<div class="lanes">
+          ${lane('browser', 'On-device actions', 'Group by site, close duplicates, archive', 'Stays in your browser', 'stay')}
+          ${lane('laptop', 'AI on your own computer', 'Ollama, LM Studio, llama.cpp', 'Stays on your computer', 'stay')}
+          ${lane('cloud', 'An online AI you choose', 'Gemini, OpenAI, Groq and others', 'Only after you agree', 'ask')}
+        </div>
+        <p class="foot"><b>Decltr has no cloud, no account and no analytics.</b><br>Open source under the MIT licence.</p>`,
+      panel: 'panel-privacy.png',
+      cls: 'privacy',
+    },
+    2: { title: 'Tidy your tabs <span>in plain English</span>', text: 'Say what you want. Decltr shows a plan you can check and adjust, applies it, and can undo it.', panel: 'panel-plan.png' },
+    3: { title: 'Save a window, <span>open it later</span>', text: 'Sessions keep tabs, groups and their names. Clear a window, then bring it back in any window. Sessions are saved on your computer, not in a cloud.', panel: 'panel-sessions.png' },
+    4: { title: 'Your choice <span>of AI</span>', text: 'Ollama or LM Studio on your own computer, Google Gemini with your own key, or any OpenAI-compatible service. No Decltr account, and nothing in between.', panel: 'panel-ai.png' },
+    5: { title: 'Built for <span>hundreds of tabs</span>', text: 'Archive tabs you have not used in weeks, open big sessions without loading every tab, and let AI sort huge windows in parts.', panel: 'panel-big.png' },
+  };
+  const tagline = 'Open source, with no account and no Decltr cloud. With local AI, nothing leaves your computer.';
+
+  if (q.has('large') || q.has('social')) {
+    document.body.innerHTML = `<div class="large${q.has('social') ? ' social' : ''}"><div class="copy">${brand}
+      <h1>Tidy your tabs<br>in plain English</h1><p>${tagline}</p>${q.has('social') ? chips('Chrome and Edge', 'MIT licence', 'Ollama, Gemini and more') : ''}</div>
+      ${panel('panel-plan.png')}</div>`;
   } else if (q.has('promo')) {
-    document.body.innerHTML = `<div class="promo"><div class="brand"><img src="${icon}" alt="">Decltr</div><p>Tidy your Chrome tabs<br>in plain English.</p></div>`;
+    document.body.innerHTML = `<div class="promo">${brand}<p>Tidy your tabs<br>in plain English.</p>${chips('Open source', 'No account', 'Local AI')}</div>`;
   } else {
-    const n = Number(q.get('n') ?? 1);
-    const [title, text] = shots[n];
-    document.body.innerHTML = `<div class="shot"><div class="copy"><div class="brand"><img src="${icon}" alt="">Decltr</div><h1>${title}</h1><p>${text}</p></div>
-      <div class="panel"><img src="/dev/store/panel-${n}.png" alt=""></div></div>`;
+    const s = shots[Number(q.get('n') ?? 1)];
+    document.body.innerHTML = `<div class="shot ${s.cls ?? ''}"><div class="copy">${brand}<h1>${s.title}</h1>${s.body ?? `<p>${s.text}</p>`}</div>
+      ${panel(s.panel)}</div>`;
   }
 </script>
 </body>

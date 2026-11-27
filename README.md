@@ -1,8 +1,29 @@
 # Decltr
 
-Tell Chrome how to tidy your tabs in plain English. Decltr can **group**, **ungroup**, **close**, **move to a new window** and **bookmark** the tabs in a window. It shows a plan first, and you can **undo** it afterwards.
+![Decltr: tidy your tabs in plain English. Open source, no account, no Decltr cloud.](store/promo-1400x560.png)
 
-Decltr works with the AI model you choose: **Google Gemini**, **Ollama** (fully on your computer), or **any OpenAI-compatible service** (OpenAI, OpenRouter, Groq, LM Studio, llama.cpp, vLLM and others). There is nothing to host and nothing to install besides the extension.
+**Tidy your tabs in plain English.** Tell Decltr what you want, and it can **group**, **ungroup**, **close**, **move to a new window**, **bookmark** and **save** the tabs in a window. It shows a plan first, and you can **undo** it afterwards.
+
+[Get it for Microsoft Edge](https://microsoftedge.microsoft.com/addons/detail/decltr/ohffgmfbgpkiaapaidcakhpkhllmhopn) · [Load it in Chrome](#quick-start) · [Privacy policy](PRIVACY.md)
+
+## Private by design
+
+Decltr is an independent, open-source project. It has no cloud, no account, no analytics and no ads, so none of your data reaches its developer. You choose where your tabs go:
+
+| What you use | Where your tabs go |
+| --- | --- |
+| Quick actions marked *On-device*, and saving, opening, exporting or importing sessions | Nowhere. Nothing is sent. |
+| AI actions with a model on your own computer: Ollama, LM Studio, llama.cpp | Nowhere. They stay on your computer. |
+| AI actions with an online model you pick: Google Gemini, OpenAI, OpenRouter, Groq and others | Your request and the titles and addresses of the tabs involved (without anything after `?` or `#`) go to that service, and only after you agree. |
+| Sharing sessions between browsers (advanced) | To the optional Decltr server on this computer, and nowhere else. |
+
+- AI actions include naming a session with AI, which you can turn off in Settings.
+- Your API key stays in this browser and is sent only to the service it belongs to.
+- Tab icons come from the browser itself, never from the sites.
+- No code is downloaded from the internet. The model's answers are checked as data, and nothing changes until you press **Apply**.
+- All of it is in this repository under the MIT licence, so you can check every line.
+
+Decltr works with the AI model you choose: **Google Gemini**, **Ollama** (on your computer), or **any OpenAI-compatible service** (OpenAI, OpenRouter, Groq, LM Studio, llama.cpp, vLLM and others). There is nothing to host and nothing to install besides the extension.
 
 ```
 Chrome side panel  ──►  the model you chose (Gemini, Ollama, OpenAI-compatible)
@@ -12,7 +33,7 @@ An optional [local server](#the-optional-local-server-advanced) can hold your ke
 
 ## Quick start
 
-You need **Chrome 116+** or **Microsoft Edge** and one of the models below. Load the extension:
+You need **Chrome 116+** or **Microsoft Edge** and one of the models below. In Edge, the easiest way is [Microsoft Edge Add-ons](https://microsoftedge.microsoft.com/addons/detail/decltr/ohffgmfbgpkiaapaidcakhpkhllmhopn). To load the extension by hand instead:
 
 1. Open `chrome://extensions` (in Edge, `edge://extensions`) and turn on **Developer mode**.
 2. Click **Load unpacked** and choose the `extension/` folder.
@@ -23,10 +44,10 @@ The panel then asks how Decltr should think. Pick one:
 | Choice | What you do | Where your tab titles go |
 | --- | --- | --- |
 | **Google Gemini** | Paste an API key from Google AI Studio. | To Google |
-| **Ollama** | Install [Ollama](https://ollama.com), run `ollama pull <model>`, then pick the model in the panel. | Nowhere. They stay on your computer. |
+| **Ollama** | Install [Ollama](https://ollama.com), run `ollama pull <model>`, then pick the model in the panel. | Nowhere. They stay on your computer. (Ollama's cloud models go to ollama.com, after you agree.) |
 | **Another service** | Enter the service's address (for example `https://api.groq.com/openai/v1`), a key and a model name. | To that service |
 
-Before anything can be sent to another computer, Decltr says what it sends and where, and waits for you to press **Agree and continue**. It asks once for each service, and again if you forget the key. Ollama on your own computer never asks, because nothing leaves it. Chrome then asks you to allow access to that one address, and to nothing else. Keys and settings are kept in this browser profile only (`chrome.storage.local`). They are never synced and never sent anywhere except to the model you chose.
+Before anything can be sent to another computer, Decltr says what it sends and where, and waits for you to press **Agree and continue**. It asks once for each service, and again if you forget the key. A model on your own computer never asks, because nothing leaves it. Ollama's cloud models (names ending in `cloud`, such as `gemma4:cloud`) do ask, because Ollama runs them on ollama.com. Chrome then asks you to allow access to that one address, and to nothing else. Keys and settings are kept in this browser profile only (`chrome.storage.local`). They are never synced and never sent anywhere except to the model you chose.
 
 The on-device quick actions and sessions work without any model. Only the AI actions need one.
 
@@ -203,7 +224,7 @@ To limit the damage if a key does leak, restrict it to the one API it is for and
 
 ## Privacy
 
-For AI actions, tab titles and URLs (origin and path only; query strings and fragments are removed in the extension, before anything is sent) go to the model you chose: Google, another service, the Decltr server, or only your own computer with Ollama. Decltr has no server of its own and collects nothing. Page titles are treated as untrusted data: the model's output is validated twice, can only reference your own tab IDs, and cannot create URLs. Nothing changes until you press Apply.
+For AI actions, tab titles and URLs (origin and path only; query strings and fragments are removed in the extension, before anything is sent) go to the model you chose: Google, another service, the Decltr server, or only your own computer with a local model. Decltr has no server of its own and collects nothing. Tab icons are taken from the browser's own icon store, so showing tabs and sessions contacts no site. Page titles are treated as untrusted data: the model's output is validated twice, can only reference your own tab IDs, and cannot create URLs. Nothing changes until you press Apply.
 
 ## Configuration
 
@@ -224,14 +245,14 @@ Environment variables for the optional server:
 ```bash
 npm test         # server and extension logic, using a mock of the Chrome APIs
 npm run dev:ui   # preview the side panel in a normal tab: http://localhost:5173/panel
-                 #   ?server=offline | nokey | billing    &tabs=many
+                 #   ?server=offline | nokey | billing    &tabs=many | huge    &ai=ollama
 npm run icons    # regenerate extension/icons
 npm run package  # dist/decltr-<version>-store.zip (stores, no "key") and -unpacked.zip (GitHub releases, pinned ID)
 ```
 
 ## Contributing, security and privacy
 
-See [CONTRIBUTING.md](CONTRIBUTING.md). Report security problems privately as described in [SECURITY.md](SECURITY.md). The privacy policy is [PRIVACY.md](PRIVACY.md). Store listing text and graphics are in [store/](store/): [EDGE.md](store/EDGE.md) for Edge Add-ons, [LISTING.md](store/LISTING.md) for the Chrome Web Store.
+See [CONTRIBUTING.md](CONTRIBUTING.md). Report security problems privately as described in [SECURITY.md](SECURITY.md). The privacy policy is [PRIVACY.md](PRIVACY.md). Store listing text and graphics are in [store/](store/): [EDGE.md](store/EDGE.md) for Edge Add-ons, [LISTING.md](store/LISTING.md) for the Chrome Web Store, and [BRAND.md](store/BRAND.md) for the wording rules, the proof behind each privacy claim, colours and files. `node dev/store/capture.mjs` renders the graphics.
 
 ## Licence
 

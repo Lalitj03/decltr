@@ -22,24 +22,26 @@ Visibility: **Public**. Markets: **all markets**.
 
 The name and short description come from the manifest.
 
-**Description** (plain text, no bullet characters, because Edge has rejected those):
+**Description** (plain text, no bullet characters, because Edge has rejected those). The listing's text can be changed in Partner Center at any time; the short description under the name comes from the manifest, so it changes only with a new package.
 
 ```
-Too many tabs? Tell Decltr what you want in plain English, and it tidies the current window for you. For example: "Put everything about my Lisbon trip in one group", "Bookmark all recipe tabs into a folder called Recipes and close them", "Move all video tabs to a new window", or "Ungroup everything, then group by project".
+Tidy your tabs in plain English. Tell Decltr what you want, and it tidies the current window for you. For example: "Put everything about my Lisbon trip in one group", "Bookmark all recipe tabs into a folder called Recipes and close them", "Move all video tabs to a new window", or "Ungroup everything, then group by project".
+
+Independent and open source. Decltr has no cloud of its own, no account, no analytics and no ads, so none of your data reaches its developer. All of its code is public under the MIT licence: https://github.com/Lalitj03/decltr
+
+Your tabs go only where you send them. Use a model that runs on your own computer, such as Ollama, LM Studio or llama.cpp, and nothing leaves your computer. Or use Google Gemini or any OpenAI-compatible service (OpenAI, OpenRouter, Groq, vLLM) with your own key. Then your request and the titles and addresses of the tabs involved go to that service, with everything after "?" or "#" removed, and only after you agree. Your API key stays in this browser.
+
+Many features need no AI and never send anything: group by site, close duplicates, archive old tabs, bookmark and clear, and ungroup all. Sessions work without AI too.
 
 Decltr always shows its plan first. You can switch off any step or drop single tabs, then press Apply. Undo puts things back.
 
-Works with the AI you choose. Use Google Gemini with your own API key, Ollama running on your own computer so nothing leaves it, or any OpenAI-compatible service such as OpenAI, OpenRouter, Groq, LM Studio, llama.cpp or vLLM.
-
-Many features need no AI at all. Group by site, close duplicates, bookmark and clear, and ungroup all work on your device. Archive old tabs saves the tabs you have not used for a week, a month or longer as a session, then closes them. Sessions let you save a window as a named workspace, clear it, and reopen it later in any window, all of it or just the groups or tabs you pick. An opened session keeps itself up to date. Export sessions to a file as a backup or to share them, and import Decltr files, OneTab exports or any list of links. Advanced: share sessions between Edge, Chrome and other browsers on this computer, through the optional open-source Decltr server.
+Sessions save a window as a named workspace, clear it, and reopen it later in any window, all of it or just the groups or tabs you pick. An opened session keeps itself up to date. Archive old tabs saves the tabs you have not used for a week, a month or longer as a session, then closes them. Export sessions to a file as a backup or to share them, and import Decltr files, OneTab exports or any list of links. Advanced: share sessions between Edge, Chrome and other browsers on this computer, through the optional open-source Decltr server. Shared sessions stay on this computer.
 
 Built for hundreds of tabs. Big windows are planned by AI in parts, with progress you can follow and stop. Big sessions open without loading every tab, so opening 650 tabs does not run out of memory. A window with hundreds of tabs gets suggestions to make it lighter.
 
-Private by design. There is no account, no analytics and no server of its own. Tab titles and addresses go only to the AI model you chose, and only when you use an AI action. Everything after "?" or "#" in an address is removed first. Decltr asks before sending anything to another computer, and your API key stays in this browser. Bookmark access is asked for only the first time you save bookmarks.
+Bookmark access is asked for only the first time you save bookmarks. Tab icons come from the browser itself, never from the sites.
 
-Decltr is open source under the MIT licence: https://github.com/Lalitj03/decltr
-
-Decltr is an independent project. It is not affiliated with or endorsed by Microsoft, Google, Ollama, OpenAI or any other AI provider.
+Decltr is an independent hobby project. It is not affiliated with or endorsed by Microsoft, Google, Ollama, OpenAI or any other AI provider.
 ```
 
 **Images:**
@@ -49,12 +51,12 @@ Decltr is an independent project. It is not affiliated with or endorsed by Micro
 | Extension logo (300x300) | `store/logo-300.png` |
 | Small promotional tile (440x280) | `store/promo-440x280.png` |
 | Large promotional tile (1400x560) | `store/promo-1400x560.png` |
-| Screenshots (1280x800) | `store/screenshot-1.png` to `screenshot-4.png` |
+| Screenshots (1280x800) | `store/screenshot-1.png` to `screenshot-5.png`, in that order (the first one is about privacy) |
 
 **Search terms** (at most 7 terms and 21 words):
 
 ```
-tab manager; tab groups; organize tabs; AI tabs; close duplicate tabs; sessions; Ollama
+tab manager; tab groups; organize tabs; close duplicate tabs; local AI; Ollama; open source
 ```
 
 ## 5. Notes for certification
@@ -66,7 +68,7 @@ Without any AI: click the toolbar icon to open the sidebar. "Group by site", "Cl
 
 With AI: Decltr does not include a key or a hosted service. Open Settings (top right), choose "Google Gemini", paste any Gemini API key from https://aistudio.google.com/apikey, press "Save and test", then "Agree and continue" and allow access. Then try "Group by topic" or type "Put all shopping tabs in one group". Ollama and OpenAI-compatible services can be tested the same way if available.
 
-Permissions: tabs and tabGroups to read and organize the window's tabs; sidePanel for the interface; storage for settings and sessions kept locally; declarativeNetRequestWithHostAccess only when the user picks Ollama, to set the Origin header on Decltr's own requests to the Ollama address the user entered; bookmarks is optional and asked for on first use. Host access for an AI service is optional and asked for one address at a time, only for the service the user chooses. The fixed host 127.0.0.1:47821 is an optional open-source helper some users run on their own computer; it can also share sessions between the user's browsers on that computer. alarms is used only when that sharing is on, to check for changes every few minutes. unlimitedStorage lets saved sessions hold thousands of tabs.
+Permissions: tabs and tabGroups to read and organize the window's tabs; sidePanel for the interface; storage for settings and sessions kept locally; favicon to show each tab's icon from the browser's own icon store, so the panel never loads icons from the sites; declarativeNetRequestWithHostAccess only when the user picks Ollama, to set the Origin header on Decltr's own requests to the Ollama address the user entered; bookmarks is optional and asked for on first use. Host access for an AI service is optional and asked for one address at a time, only for the service the user chooses. The fixed host 127.0.0.1:47821 is an optional open-source helper some users run on their own computer; it can also share sessions between the user's browsers on that computer. alarms is used only when that sharing is on, to check for changes every few minutes. unlimitedStorage lets saved sessions hold thousands of tabs.
 
 No remote code is used. Model answers are treated as data, validated, and never run.
 
@@ -75,6 +77,6 @@ The "Decltr server" option is for users who run the optional open-source server 
 
 ## After it is published
 
-1. Copy the Edge Add-ons link into the README.
+1. The listing is https://microsoftedge.microsoft.com/addons/detail/decltr/ohffgmfbgpkiaapaidcakhpkhllmhopn, linked from the README.
 2. The Edge store ID (`ohffgmfbgpkiaapaidcakhpkhllmhopn`) is already allowed by the optional server. Users only need `npm run server:restart` after updating.
-3. For updates, raise the version, run `npm run package`, and in Partner Center choose **Update** on the extension's Packages page.
+3. For updates, raise the version, run `npm run package`, and in Partner Center choose **Update** on the extension's Packages page. Each package needs a higher version than the last one uploaded.

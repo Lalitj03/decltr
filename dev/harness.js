@@ -41,6 +41,13 @@ const tabs = q.get('tabs') === 'many' ? [...base, ...extra].map(lastUsed) : q.ge
 globalThis.chrome = createMockChrome({ tabs, loading: { commitMs: 30, titleMs: 60 } });
 globalThis.__mock = globalThis.chrome;
 
+// ai=ollama: Ollama on this computer is chosen and allowed, as after setting it up (used for the privacy
+// screenshots). AI actions then go to a real Ollama at 127.0.0.1:11434, if one is running.
+if (q.get('ai') === 'ollama') {
+  globalThis.chrome.__state.storage.local['decltr.ai'] = { provider: 'ollama', ollama: { baseUrl: 'http://127.0.0.1:11434', model: 'llama3.2' } };
+  globalThis.chrome.permissions.__granted.add('http://127.0.0.1:11434/*');
+}
+
 const topics = [
   ['Dev', 'blue', /github|mozilla|mdn|stack/i],
   ['Recipes', 'orange', /recipe|pasta|bread|bak/i],

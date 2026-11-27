@@ -2,7 +2,8 @@
 // mock chrome.* API and a fake Decltr server, so the UI can be exercised without
 // loading the extension. Open http://localhost:5173/panel
 //   ?server=ok | offline | nokey | billing    (default ok)
-//   &tabs=many                                (a larger tab set)
+//   &tabs=many | huge                         (a larger tab set; huge has 650 tabs, &n= changes that)
+//   &ai=ollama                                (Ollama on this computer is set up, instead of the Decltr server)
 import http from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { extname, join, normalize } from 'node:path';
