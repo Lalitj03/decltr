@@ -6,8 +6,8 @@ Copy these into the [developer dashboard](https://chrome.google.com/webstore/dev
 
 **Name:** Decltr
 
-**Summary** (from the manifest, 127 characters):
-Tidy tabs in plain English: group, close, bookmark, save. Open source, no account. With local AI, nothing leaves your computer.
+**Summary** (from the manifest, 124 characters):
+Tidy tabs in plain English. Open source, runs on your device, collects no data. With local AI, nothing leaves your computer.
 
 **Category:** Workflow & Planning
 
@@ -25,13 +25,13 @@ Tidy your tabs in plain English. Tell Decltr what you want, and it tidies the cu
 
 Decltr always shows its plan first. You can switch off any step or drop single tabs, then press Apply. Undo puts things back.
 
-INDEPENDENT AND OPEN SOURCE
-• No Decltr cloud, no account, no analytics, no ads. None of your data reaches the developer.
+RUNS ON YOUR DEVICE, COLLECTS NO DATA
+• No Decltr cloud, no account, no analytics, no ads. Nothing you do in Decltr ever reaches us.
 • All of the code is public under the MIT licence: https://github.com/Lalitj03/decltr
 
-YOUR TABS GO ONLY WHERE YOU SEND THEM
+EVERY FEATURE CAN RUN ON YOUR COMPUTER, AI INCLUDED
 • A model on your own computer (Ollama, LM Studio, llama.cpp): nothing leaves your computer
-• Google Gemini or any OpenAI-compatible service (OpenAI, OpenRouter, Groq, vLLM), with your own key: your request and the titles and addresses of the tabs involved go to that service, with everything after "?" or "#" removed, and only after you agree
+• Prefer an online AI (Google Gemini, OpenAI, OpenRouter, Groq)? Use your own key. The titles and addresses of the tabs involved go straight from your browser to that provider, never to us, with everything after "?" or "#" removed
 • Your API key stays in this browser
 • Tab icons come from the browser itself, never from the sites
 

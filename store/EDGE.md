@@ -27,9 +27,9 @@ The name and short description come from the manifest.
 ```
 Tidy your tabs in plain English. Tell Decltr what you want, and it tidies the current window for you. For example: "Put everything about my Lisbon trip in one group", "Bookmark all recipe tabs into a folder called Recipes and close them", "Move all video tabs to a new window", or "Ungroup everything, then group by project".
 
-Independent and open source. Decltr has no cloud of its own, no account, no analytics and no ads, so none of your data reaches its developer. All of its code is public under the MIT licence: https://github.com/Lalitj03/decltr
+Runs on your device and collects no data. Decltr is an independent project with no cloud, no account, no analytics and no ads, so nothing you do in it ever reaches us. All of its code is public under the MIT licence: https://github.com/Lalitj03/decltr
 
-Your tabs go only where you send them. Use a model that runs on your own computer, such as Ollama, LM Studio or llama.cpp, and nothing leaves your computer. Or use Google Gemini or any OpenAI-compatible service (OpenAI, OpenRouter, Groq, vLLM) with your own key. Then your request and the titles and addresses of the tabs involved go to that service, with everything after "?" or "#" removed, and only after you agree. Your API key stays in this browser.
+Every feature can run on your own computer, AI included. Use a model on your computer, such as Ollama, LM Studio or llama.cpp, and nothing leaves it. If you prefer an online AI such as Google Gemini, OpenAI, OpenRouter or Groq, you use your own key, and the titles and addresses of the tabs involved go straight from your browser to that provider, never to us. Everything after "?" or "#" in an address is removed first, and your API key stays in this browser.
 
 Many features need no AI and never send anything: group by site, close duplicates, archive old tabs, bookmark and clear, and ungroup all. Sessions work without AI too.
 

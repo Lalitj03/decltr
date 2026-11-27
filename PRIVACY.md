@@ -2,13 +2,13 @@
 
 Effective 27 November 2026. This policy covers the Decltr browser extension (for Chrome and Microsoft Edge) and the optional Decltr server.
 
-Decltr is an independent, open-source hobby project. It has no cloud of its own, no accounts, no analytics and no advertising. The developer receives no data from you. (The optional Decltr server is a program you run yourself, on your own computer.)
+Decltr is an independent, open-source hobby project. It runs on your device and the developer collects no data: there is no Decltr cloud, no account, no analytics and no advertising, and nothing you do in Decltr reaches the developer. (The optional Decltr server is a program you run yourself, on your own computer.)
 
 In short:
 
 - Quick actions marked *On-device* send nothing, and neither do saving, opening, exporting and importing sessions.
 - AI actions, including naming a session with AI, use the model you chose. With a model that runs on your own computer (for example Ollama or LM Studio), nothing leaves your computer.
-- With an online model, your request and the titles and addresses of the tabs involved go to that service, and only after you agree.
+- With an online model, you use your own key, and your request and the titles and addresses of the tabs involved go straight from your browser to that service, under its terms. They never reach the developer.
 
 ## What Decltr handles, and where it goes
 

@@ -1,6 +1,6 @@
 # Decltr
 
-![Decltr: tidy your tabs in plain English. Open source, no account, no Decltr cloud.](store/promo-1400x560.png)
+![Decltr: tidy your tabs in plain English. Open source, runs on your device, collects no data.](store/promo-1400x560.png)
 
 **Tidy your tabs in plain English.** Tell Decltr what you want, and it can **group**, **ungroup**, **close**, **move to a new window**, **bookmark** and **save** the tabs in a window. It shows a plan first, and you can **undo** it afterwards.
 
@@ -8,14 +8,14 @@
 
 ## Private by design
 
-Decltr is an independent, open-source project. It has no cloud, no account, no analytics and no ads, so none of your data reaches its developer. You choose where your tabs go:
+Decltr is an independent, open-source project. It runs on your device and collects no data: there is no Decltr cloud, no account, no analytics and no ads, so nothing you do in it ever reaches its developer. Every feature can run on your own computer, AI included:
 
 | What you use | Where your tabs go |
 | --- | --- |
 | Quick actions marked *On-device*, and saving, opening, exporting or importing sessions | Nowhere. Nothing is sent. |
 | AI actions with a model on your own computer: Ollama, LM Studio, llama.cpp | Nowhere. They stay on your computer. |
-| AI actions with an online model you pick: Google Gemini, OpenAI, OpenRouter, Groq and others | Your request and the titles and addresses of the tabs involved (without anything after `?` or `#`) go to that service, and only after you agree. |
 | Sharing sessions between browsers (advanced) | To the optional Decltr server on this computer, and nowhere else. |
+| AI actions with an online model, if you prefer one: Google Gemini, OpenAI, OpenRouter, Groq and others | Straight from your browser to that provider, with your own key, never to Decltr. It gets your request and the titles and addresses of the tabs involved, without anything after `?` or `#`. |
 
 - AI actions include naming a session with AI, which you can turn off in Settings.
 - Your API key stays in this browser and is sent only to the service it belongs to.
