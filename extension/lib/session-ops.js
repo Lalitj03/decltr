@@ -7,6 +7,7 @@ import {
   applyAutoName, deleteSession, openSession, partOfSession, undoOpen,
 } from './sessions.js';
 import { isLiveEnabled, linkWindow, liveWindowFor, unlinkSession, unlinkWindow } from './tracker.js';
+import { getShare, liveElsewhere, requestSync } from './share.js';
 
 const attempt = async (fn, fallback = null) => {
   try {
@@ -25,7 +26,7 @@ const attempt = async (fn, fallback = null) => {
  * the session, so it is never synced: saving it back would drop every tab that was left closed.
  * The same goes for an open that was stopped halfway.
  */
-export async function openTracked(session, { target, windowId, positions, signal, onProgress }) {
+export async function openTracked(session, { target, windowId, positions, signal, onProgress, takeOver = false }) {
   const partial = Array.isArray(positions) && new Set(positions).size < session.tabs.length;
   if (target === 'new' && !partial) {
     const live = await liveWindowFor(session.id);
@@ -41,9 +42,15 @@ export async function openTracked(session, { target, windowId, positions, signal
   // The window belongs to the session only if it holds nothing else: a fresh window, or one
   // that was just blank. Adding tabs to a busy window must not turn that window into the session.
   const dedicated = info.newWindow || info.wasBlank;
-  if (!partial && !info.stopped && info.createdIds.length > 0 && dedicated && (await isLiveEnabled())) {
+  // With sharing, another browser may already keep this session live. Then this window is not synced,
+  // unless you asked to sync here instead ("takeOver"), which moves the session to this window.
+  const share = await getShare();
+  const elsewhere = liveElsewhere(share, session.id);
+  info.liveElsewhere = elsewhere && !takeOver ? elsewhere.name : null;
+  if (!partial && !info.stopped && info.createdIds.length > 0 && dedicated && !info.liveElsewhere && (await isLiveEnabled())) {
     await linkWindow(info.windowId, session.id);
     info.tracking = true;
+    if (share.on) requestSync('claim'); // tell the other browsers soon, so they stop syncing their window
   }
   return info;
 }

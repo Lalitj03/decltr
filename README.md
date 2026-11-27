@@ -168,6 +168,20 @@ The **Sessions** tab saves a window as a named workspace and reopens it later, i
 
 Bookmarks go into **Other bookmarks → Decltr → \<folder\>**. The first time a plan saves bookmarks, Chrome asks whether Decltr may use them. If you say no, nothing in that plan is changed, so tabs are never closed without being saved. Pinned tabs are left alone unless you enable them in settings.
 
+### Sharing sessions between browsers (advanced)
+
+With the [optional Decltr server](#the-optional-local-server-advanced) running, Chrome, Edge, Brave and other Chromium browsers on this computer can see the same sessions. Turn it on in **Settings → Share sessions between browsers**, once in each browser. Sharing needs no API key, so it works whichever AI model you use.
+
+- **It is automatic.** Saving, renaming, deleting, AI names, archives, imports and the tab changes of live sessions go across by themselves: about a second after you make them, as soon as you switch to the other browser, every 5 seconds while a panel shows the Sessions tab or Settings, and every few minutes otherwise. Sessions saved in another browser say so, for example "from Microsoft Edge".
+- **Saved sessions sync, open windows do not.** A session saved in Chrome appears in Edge's list, but no tabs open in Edge until you open it there.
+- **One browser at a time keeps a session live.** In the other browsers its card says "Live in Google Chrome", and opening it there opens a window that is not kept in sync. **Sync here instead** opens it with syncing in this browser; the other browser's window stays open but stops syncing.
+- **The rules are the ones you know.** A deletion wins and is never undone by another browser. A name you typed beats an AI name, which beats the date name; otherwise the later change wins. The name and the tabs are merged separately, so renaming in one browser while a live window changes tabs in another keeps both.
+- **Safety nets.** Turning sharing on deletes nothing: sessions from both sides are kept, those with the same tabs and groups only once, and Decltr offers to export a backup first. A sync that would remove many sessions at once (more than 10, and more than a third) waits for you to say yes. The server keeps a copy of the shared sessions each day for 7 days, in `backups/`. Turning sharing off keeps every session in that browser.
+- **When the server is stopped**, every browser keeps working with its own copy, and changes go across when it is back. The chip next to "Saved sessions" then says "Sharing paused".
+- **Where it is kept.** The server keeps the shared sessions in `~/Library/Application Support/Decltr/shared` (Linux: `~/.local/share/decltr/shared`, Windows: `%APPDATA%\Decltr\shared`; `DECLTR_DATA_DIR` changes it), in files only your user can read. Nothing leaves this computer. `npm run server:status` shows how many sessions and browsers share.
+- **Which browsers.** Each one needs the extension with an ID the server accepts: the unpacked copy (Load unpacked, or the `-unpacked.zip` of a release) and the Edge Add-ons version are accepted by default. Brave, Vivaldi, Opera and Chrome use the unpacked copy. Two profiles of the same browser count as two browsers, called for example "Google Chrome (2)"; rename them in Settings.
+- It works between browsers on one computer. To move sessions to another computer, use Export and Import.
+
 ## How safe is a key kept in the browser?
 
 A key you paste into Settings is about as safe as one in a config file or `.env` on your computer.
@@ -202,6 +216,7 @@ Environment variables for the optional server:
 | `DECLTR_API_KEY` | your key, if you are not using the Keychain |
 | `DECLTR_MODEL` | `gemini-3.5-flash-lite` |
 | `DECLTR_THINKING_BUDGET` | `0` (raise for harder requests, up to 24576) |
+| `DECLTR_DATA_DIR` | where shared sessions are kept (an absolute path). Default `~/Library/Application Support/Decltr` on macOS |
 | `DECLTR_EXTENSION_ID` | the pinned development ID and the Edge Add-ons ID. Comma-separated list allowed. For the background service, set it at install: `DECLTR_EXTENSION_ID=id1,id2 npm run server:install` |
 
 ## Development

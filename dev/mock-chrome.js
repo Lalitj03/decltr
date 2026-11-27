@@ -29,7 +29,7 @@ export function createMockChrome({ tabs: seed = [], groups: seedGroups = [], boo
     tabsCreated: makeEvent(), tabsRemoved: makeEvent(), tabsUpdated: makeEvent(), tabsMoved: makeEvent(),
     tabsAttached: makeEvent(), tabsDetached: makeEvent(), tabsReplaced: makeEvent(),
     groupsCreated: makeEvent(), groupsUpdated: makeEvent(), groupsRemoved: makeEvent(), groupsMoved: makeEvent(),
-    windowsRemoved: makeEvent(), storageChanged: makeEvent(),
+    windowsRemoved: makeEvent(), windowsFocus: makeEvent(), storageChanged: makeEvent(), alarm: makeEvent(),
   };
   // Chrome delivers events after the API call has returned.
   const fire = (event, ...args) => queueMicrotask(() => event.__emit(...args));
@@ -172,7 +172,18 @@ export function createMockChrome({ tabs: seed = [], groups: seedGroups = [], boo
         state.windows.delete(1);
       },
       onRemoved: ev.windowsRemoved,
+      onFocusChanged: ev.windowsFocus,
+      WINDOW_ID_NONE: -1,
     },
+    alarms: (() => {
+      const alarms = new Map();
+      return {
+        create: async (name, info) => void alarms.set(name, { name, ...info }),
+        get: async (name) => alarms.get(name),
+        onAlarm: ev.alarm,
+        __fire: (name) => ev.alarm.__emit({ name }),
+      };
+    })(),
     tabs: {
       query: async ({ windowId } = {}) => state.tabs.filter((t) => windowId === undefined || t.windowId === windowId).sort((a, b) => a.index - b.index).map(copy),
       get: async (id) => copy(need(id)),

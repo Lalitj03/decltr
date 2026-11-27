@@ -1,5 +1,7 @@
 // Server configuration. The bind address is deliberately not configurable:
 // the server must only ever be reachable from this machine.
+import { homedir } from 'node:os';
+import { isAbsolute, join } from 'node:path';
 
 export const HOST = '127.0.0.1';
 export const DEFAULT_PORT = 47821;
@@ -18,6 +20,20 @@ export const DEFAULT_MODEL = 'gemini-3.5-flash-lite';
 // "gemini" uses the Gemini Developer API (AI Studio, prepaid).
 export const PROVIDERS = ['vertex', 'gemini'];
 export const DEFAULT_PROVIDER = 'vertex';
+
+/**
+ * Where the server keeps its data (the shared sessions), in the usual place for each system.
+ * DECLTR_DATA_DIR overrides it, for example for tests or a second copy.
+ */
+export function dataDirFor(env = process.env, platform = process.platform, home = homedir()) {
+  if (env.DECLTR_DATA_DIR) {
+    if (!isAbsolute(env.DECLTR_DATA_DIR)) throw new Error('DECLTR_DATA_DIR must be an absolute path');
+    return env.DECLTR_DATA_DIR;
+  }
+  if (platform === 'darwin') return join(home, 'Library', 'Application Support', 'Decltr');
+  if (platform === 'win32') return join(env.APPDATA || join(home, 'AppData', 'Roaming'), 'Decltr');
+  return join(env.XDG_DATA_HOME || join(home, '.local', 'share'), 'decltr');
+}
 
 export function loadConfig(env = process.env) {
   const port = Number(env.DECLTR_PORT ?? DEFAULT_PORT);
@@ -54,6 +70,7 @@ export function loadConfig(env = process.env) {
 
   return {
     host: HOST,
+    dataDir: dataDirFor(env),
     managed,
     port,
     provider,

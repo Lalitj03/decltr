@@ -3,6 +3,8 @@ import { loadConfig } from '../src/config.js';
 import { createApp, VERSION } from '../src/app.js';
 import { isValidKeyFormat, readApiKey, storeApiKey } from '../src/keychain.js';
 import { chooseProviderForKey, createKeySource, PROVIDER_LABELS } from '../src/provider.js';
+import { openSharedStore } from '../src/shared-store.js';
+import { join } from 'node:path';
 
 const command = process.argv[2] ?? 'start';
 
@@ -44,11 +46,21 @@ async function start() {
     server.closeAllConnections?.();
   }
 
+  const log = (line) => console.log(`${new Date().toISOString()} ${line}`);
+  // Sharing sessions between browsers. If the folder cannot be opened, everything else still works.
+  let store = null;
+  try {
+    store = await openSharedStore(join(config.dataDir, 'shared'), { log });
+  } catch (err) {
+    log(`shared sessions unavailable: could not open ${join(config.dataDir, 'shared')} (${err.code ?? err.message})`);
+  }
+
   const server = createApp({
     config,
     getApiKey,
     control: { restart: () => shutdown(EXIT_RESTART), stop: () => shutdown(0) },
-    log: (line) => console.log(`${new Date().toISOString()} ${line}`),
+    log,
+    store,
   });
 
   server.on('error', (err) => {
@@ -67,6 +79,10 @@ async function start() {
     console.log(`Allowed origins: ${[...config.allowedOrigins].join(', ')}`);
     console.log(hasKey ? 'API key: found' : 'API key: NOT FOUND. Run "npm run set-key".');
     if (config.managed) console.log('Running as a background service: the panel can restart or stop it.');
+    if (store) {
+      const { sessions, browsers } = store.summary();
+      console.log(`Shared sessions: ${sessions} from ${browsers} browser(s), in ${store.dir}`);
+    }
   });
 
   for (const sig of ['SIGINT', 'SIGTERM']) process.on(sig, () => shutdown(0));
@@ -104,6 +120,7 @@ async function status() {
     });
     const body = await res.json();
     console.log(`Server: running (v${body.version}, model ${body.model})`);
+    if (body.sharing) console.log(`Shared sessions: ${body.sharing.sessions} from ${body.sharing.browsers} browser(s), in ${body.sharing.folder}`);
   } catch {
     console.log('Server: not running');
   }

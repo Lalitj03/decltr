@@ -77,6 +77,7 @@ describe_health() {
         console.log(`  answering:     yes (v${h.version}, pid ${h.pid}, ${h.provider} / ${h.model})`);
         console.log(`  API key:       ${h.keyConfigured ? "found" : "NOT FOUND (run: npm run set-key)"}`);
         console.log(`  panel control: ${h.managed ? "enabled (the panel can restart or stop it)" : "off (started by hand)"}`);
+        if (h.sharing) console.log(`  sharing:       ${h.sharing.sessions} sessions from ${h.sharing.browsers} browser(s), in ${h.sharing.folder}`);
       } catch { console.log("  answering:     no"); }
     });'
 }
@@ -197,6 +198,11 @@ cmd_uninstall() {
   rm -f "$PLIST"
   retire_old_service
   echo "Decltr server removed from login items. Its log and your Keychain entries were left alone."
+  local shared="${DECLTR_DATA_DIR:-$HOME/Library/Application Support/Decltr}/shared"
+  if [[ -d "$shared" ]]; then
+    echo "Sessions shared between browsers are kept in: $shared"
+    echo "Every browser that shared them still has its own copy. Delete that folder if you no longer want it."
+  fi
 }
 
 cmd_start() {

@@ -167,7 +167,7 @@ export function createTransferView({ els, setStatus, onImported, getSharing = ()
         setStatus({
           text: `Imported ${plural(ids.length, 'session')}`,
           sub: `${plural(list.reduce((n, s) => n + s.tabs.length, 0), 'tab')} from “${fileName}”.`,
-          undo: () => removeSessions(ids),
+          undo: () => removeSessions(ids, { bulk: true }),
         });
       } catch (err) {
         problem.textContent = err?.message ?? 'The sessions could not be imported.';

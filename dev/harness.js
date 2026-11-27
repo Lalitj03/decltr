@@ -1,5 +1,6 @@
 // Installs the mock chrome API and a fake Decltr server before the panel loads.
 import { createMockChrome } from './mock-chrome.js';
+import { fingerprint, mergeSessions, sanitizeSession } from '../extension/lib/session-format.js';
 
 const q = new URLSearchParams(location.search);
 const mode = q.get('server') ?? 'ok';
@@ -73,9 +74,66 @@ globalThis.fetch = async (url, init) => {
   const json = (status, body) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
   await new Promise((r) => setTimeout(r, 500));
   if (mode === 'offline') throw new TypeError('Failed to fetch');
-  if (String(url).endsWith('/v1/health')) return json(200, { ok: true, version: 'dev', features: ['plan', 'name', 'control'], managed: mode === 'managed', pid: 4242, model: 'mock', keyConfigured: mode !== 'nokey' });
+  if (String(url).endsWith('/v1/health')) {
+    return json(200, {
+      ok: true, version: 'dev', features: ['plan', 'name', 'control', 'sessions'], managed: mode === 'managed', pid: 4242, model: 'mock', keyConfigured: mode !== 'nokey',
+      sharing: { sessions: shared.sessions.size, browsers: shared.browsers.size, folder: '~/Library/Application Support/Decltr/shared' },
+    });
+  }
+  if (String(url).endsWith('/v1/sessions/sync')) return json(200, fakeSync(JSON.parse(init.body)));
   if (mode === 'nokey') return json(503, { ok: false, error: { code: 'no_key', message: 'No key' } });
   if (mode === 'billing') return json(402, { ok: false, error: { code: 'billing', message: 'Your Gemini credits are used up. Add credits or billing for this Google Cloud project in AI Studio (aistudio.google.com), then try again.' } });
   await new Promise((r) => setTimeout(r, 900));
   return json(200, { ok: true, plan: fakePlan(JSON.parse(init.body)), model: 'mock' });
 };
+
+// A pretend shared store for the preview, with a "Microsoft Edge" that shares two sessions and keeps one live.
+// Same rules as server/src/shared-store.js, without the files.
+const EDGE = 'edge0000-0000-4000-8000-000000000000';
+const shared = { rev: 0, sessions: new Map(), deleted: new Map(), browsers: new Map([[EDGE, { name: 'Microsoft Edge', lastSeen: Date.now() }]]), live: {} };
+const edgeSession = (id, name, n, daysAgo) => ({
+  id, name, nameSource: 'user', nameAt: Date.now() - daysAgo * 86400000, by: EDGE, createdAt: Date.now() - daysAgo * 86400000, updatedAt: Date.now() - daysAgo * 86400000,
+  groups: [{ title: 'Reading', color: 'purple', collapsed: false }],
+  tabs: Array.from({ length: n }, (_, i) => ({ url: `https://edge-${id.slice(0, 4)}.example/${i}`, title: `${name} page ${i + 1}`, favIcon: '', pinned: false, g: i < 3 ? 0 : -1 })),
+});
+for (const s of [edgeSession('edge1111-0000-4000-8000-000000000001', 'Q3 budget review', 18, 2), edgeSession('edge2222-0000-4000-8000-000000000002', 'Thesis research', 42, 5)]) {
+  shared.sessions.set(s.id, { rev: ++shared.rev, session: s });
+}
+shared.live['edge2222-0000-4000-8000-000000000002'] = { browser: EDGE, since: Date.now() - 600000 };
+
+function fakeSync(req) {
+  if (q.get('sharing') === 'offline') throw new TypeError('Failed to fetch');
+  const me = req.browser.id;
+  if (req.leave) {
+    shared.browsers.delete(me);
+    return { ok: true, left: true };
+  }
+  shared.browsers.set(me, { name: req.browser.name, lastSeen: Date.now() });
+  shared.browsers.get(EDGE).lastSeen = Date.now() - 40000;
+  const results = [];
+  for (const c of req.changes ?? []) {
+    if (c.op === 'delete') {
+      shared.sessions.delete(c.id);
+      shared.deleted.set(c.id, { rev: ++shared.rev, by: me });
+      results.push({ id: c.id, status: 'deleted', rev: shared.rev, by: me });
+      continue;
+    }
+    const s = sanitizeSession(c.session);
+    if (shared.deleted.has(s.id)) {
+      results.push({ id: s.id, status: 'deleted', rev: shared.deleted.get(s.id).rev });
+      continue;
+    }
+    const cur = shared.sessions.get(s.id)?.session;
+    const merged = cur ? mergeSessions(cur, s) : { ...s, by: s.by ?? me };
+    shared.sessions.set(s.id, { rev: ++shared.rev, session: merged });
+    results.push(fingerprint(merged) === fingerprint(s) ? { id: s.id, status: 'saved', rev: shared.rev } : { id: s.id, status: 'merged', rev: shared.rev, session: merged });
+  }
+  for (const c of req.live?.claim ?? []) shared.live[c.id] = { browser: me, since: c.at };
+  const changes = [];
+  for (const [id, e] of shared.sessions) if (e.rev > (req.cursor ?? 0)) changes.push({ id, rev: e.rev, session: e.session });
+  for (const [id, d] of shared.deleted) if (d.rev > (req.cursor ?? 0)) changes.push({ id, rev: d.rev, deleted: true, by: d.by });
+  return {
+    ok: true, epoch: 'preview', rev: shared.rev, cursor: shared.rev, more: false, results, changes, live: shared.live, count: shared.sessions.size,
+    browsers: [...shared.browsers].map(([id, b]) => ({ id, name: b.name, lastSeen: b.lastSeen })),
+  };
+}

@@ -187,22 +187,25 @@ export const addSessions = (sessions) =>
     return sessions.map((s) => s.id);
   });
 
-/** Note sessions deleted on purpose (see DELETED_KEY). Must run inside the lock. */
-async function noteDeleted(ids) {
+/**
+ * Note sessions deleted on purpose (see DELETED_KEY). `bulk` marks a removal of many at once that you already
+ * confirmed (undoing an import), so other browsers that share do not ask about it again. Must run inside the lock.
+ */
+async function noteDeleted(ids, { bulk = false } = {}) {
   const at = Date.now();
   const old = (await chrome.storage.local.get(DELETED_KEY))[DELETED_KEY] ?? [];
-  const next = [...old.filter((d) => !ids.includes(d.id)), ...ids.map((id) => ({ id, at }))].slice(-5000);
+  const next = [...old.filter((d) => !ids.includes(d.id)), ...ids.map((id) => ({ id, at, ...(bulk ? { bulk: true } : {}) }))].slice(-5000);
   await chrome.storage.local.set({ [DELETED_KEY]: next });
 }
 
 export const deleteSession = (id) => removeSessions([id]);
 
-/** Delete sessions, for example to undo an import. */
-export const removeSessions = (ids) =>
+/** Delete sessions, for example to undo an import (`bulk`). */
+export const removeSessions = (ids, { bulk = false } = {}) =>
   locked(async () => {
     if (ids.length === 0) return;
     await chrome.storage.local.remove(ids.map(keyOf));
-    await noteDeleted(ids);
+    await noteDeleted(ids, { bulk });
   });
 
 /**

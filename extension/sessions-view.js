@@ -268,6 +268,8 @@ export function createSessionsView({ els, getSettings, getAiConfig }) {
   }
 
   function sessionCard(session, isLive) {
+    const from = sharing.fromName(session);
+    const elsewhere = isLive ? null : sharing.liveElsewhere(session.id);
     const expanded = state.expanded.has(session.id);
     const confirming = state.confirmId === session.id;
     const shown = session.tabs.slice(0, 8);
@@ -275,14 +277,24 @@ export function createSessionsView({ els, getSettings, getAiConfig }) {
     return h('li', { class: `session${state.fresh.has(session.id) ? ' fresh' : ''}`, 'data-id': session.id },
       h('div', { class: 'session-main' },
         state.editingId === session.id ? renameForm(session) : titleRow(session),
-        h('div', { class: 'session-meta' }, `${describeSession(session)} · ${formatDate(isLive ? session.updatedAt : session.createdAt)}`),
+        h('div', { class: 'session-meta' }, [describeSession(session), formatDate(isLive ? session.updatedAt : session.createdAt), from ? `from ${from}` : null].filter(Boolean).join(' · ')),
         isLive
           ? h('div', { class: 'live-row' },
             h('span', { class: 'live-dot', 'aria-hidden': 'true' }),
             h('span', { class: 'live-text' }, 'Live: changes in its window are saved'),
             h('button', { class: 'link-btn', type: 'button', onClick: () => stopSyncing(session) }, 'Stop syncing'),
           )
-          : null,
+          : elsewhere
+            ? h('div', { class: 'live-row elsewhere' },
+              h('span', { class: 'live-dot', 'aria-hidden': 'true' }),
+              h('span', { class: 'live-text' }, `Live in ${elsewhere.name}`),
+              h('button', {
+                class: 'link-btn', type: 'button', disabled: state.busy,
+                title: `Open it here in a new window and keep that window up to date. ${elsewhere.name} stops syncing its window, which stays open.`,
+                onClick: () => openIt(session, 'new', undefined, { takeOver: true }),
+              }, 'Sync here instead'),
+            )
+            : null,
         h('div', { class: 'favs', 'aria-hidden': 'true' },
           shown.map((t) => h('img', { class: 'fav', alt: '', src: t.favIcon || null, referrerpolicy: 'no-referrer', onError: (e) => e.target.removeAttribute('src') })),
           session.tabs.length > shown.length ? h('span', { class: 'more' }, `+${session.tabs.length - shown.length}`) : null,
@@ -494,7 +506,7 @@ export function createSessionsView({ els, getSettings, getAiConfig }) {
     renderList();
   }
 
-  async function openIt(session, target, positions) {
+  async function openIt(session, target, positions, { takeOver = false } = {}) {
     if (state.busy) return;
     setBusy(true);
     const n = positions ? positions.length : session.tabs.length;
@@ -508,7 +520,7 @@ export function createSessionsView({ els, getSettings, getAiConfig }) {
     try {
       const win = await chrome.windows.getCurrent();
       const info = await openTracked(session, {
-        target, windowId: win.id, positions, signal: stop.signal,
+        target, windowId: win.id, positions, signal: stop.signal, takeOver,
         onProgress: (p) => progress?.set({ detail: `${p.done} of ${p.total} opened. They load when you click them.`, done: p.done, total: p.total }),
       });
       if (info.switched) return setStatus({ text: `Switched to “${session.name}”`, sub: 'It was already open in another window.' });
@@ -522,6 +534,7 @@ export function createSessionsView({ els, getSettings, getAiConfig }) {
           info.unloaded ? 'Tabs load when you click them, to save memory.' : null,
           info.tracking ? 'Changes there are saved to the session automatically.' : null,
           info.partial || info.stopped ? 'That window is not kept in sync, so the saved session stays whole.' : null,
+          info.liveElsewhere ? `It is live in ${info.liveElsewhere}, so this window is not kept in sync. To move it here, use “Sync here instead” on the session.` : null,
           failed,
         ].filter(Boolean).join(' '),
         undo: () => undoTrackedOpen(info),

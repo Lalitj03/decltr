@@ -10,5 +10,6 @@ Things that are in scope:
 - Tab details being sent without the person's agreement, or to a place they did not choose.
 - A web page or a model's answer making Decltr do something the person did not approve (for example opening, closing or bookmarking tabs outside the plan they saw).
 - The optional local server accepting requests from anything other than the Decltr extension.
+- Shared sessions (sharing between browsers) being readable by other user accounts, written outside their folder, or brought back after being deleted.
 
 **Never include a real API key in a report.** If you think a key leaked, delete it in Google AI Studio or with your provider first.

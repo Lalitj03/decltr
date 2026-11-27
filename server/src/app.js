@@ -6,10 +6,12 @@ import {
 import { callGemini, UpstreamError } from '../../extension/lib/ai/gemini.js';
 
 const MAX_BODY_BYTES = 512 * 1024;
-export const VERSION = '0.3.0';
+const SYNC_MAX_BYTES = 8 * 1024 * 1024; // sharing sends whole sessions, which can hold thousands of tabs
+export const VERSION = '0.4.0';
 // What this server can do. The extension compares this with what it needs, so an old server that
 // is still running after an update shows up as "Restart server" instead of failing with a vague error.
-export const FEATURES = ['plan', 'name', 'control'];
+// "sessions" (sharing between browsers) is only listed when the shared folder could be opened.
+export const FEATURES = ['plan', 'name', 'control', 'sessions'];
 
 /**
  * Build the HTTP server. Dependencies are injected so tests never touch the
@@ -18,8 +20,14 @@ export const FEATURES = ['plan', 'name', 'control'];
 /**
  * `control` is how the process is asked to restart or stop: { restart(), stop() }. Injected so tests never exit the process.
  */
-export function createApp({ config, getApiKey, callModel = callGemini, control = { restart() {}, stop() {} }, log = () => {} }) {
+/**
+ * `store` is the shared-sessions store (shared-store.js), or null when sharing is not available.
+ */
+export function createApp({ config, getApiKey, callModel = callGemini, control = { restart() {}, stop() {} }, log = () => {}, store = null }) {
   const limiter = new RateLimiter({ limit: 30, windowMs: 60_000 });
+  // Every browser that shares syncs every few seconds while its panel is open, so this limit is higher.
+  const syncLimiter = new RateLimiter({ limit: 600, windowMs: 60_000 });
+  const features = FEATURES.filter((f) => f !== 'sessions' || store);
   let inFlight = 0;
 
   const server = http.createServer(async (req, res) => {
@@ -55,6 +63,7 @@ export function createApp({ config, getApiKey, callModel = callGemini, control =
       if (path === '/v1/plan') return await handlePlan(req, res);
       if (path === '/v1/name') return await handleName(req, res);
       if (path === '/v1/control') return await handleControl(req, res);
+      if (path === '/v1/sessions/sync') return await handleSync(req, res);
       return sendError(res, 404, 'not_found', 'Unknown endpoint.');
     } catch (err) {
       return handleError(res, err);
@@ -63,7 +72,24 @@ export function createApp({ config, getApiKey, callModel = callGemini, control =
 
   async function handleHealth(res) {
     const key = await getApiKey();
-    sendJson(res, 200, { ok: true, version: VERSION, features: FEATURES, managed: config.managed, pid: process.pid, provider: config.provider, model: config.model, keyConfigured: Boolean(key) });
+    sendJson(res, 200, {
+      ok: true, version: VERSION, features, managed: config.managed, pid: process.pid, provider: config.provider, model: config.model, keyConfigured: Boolean(key),
+      ...(store ? { sharing: { ...store.summary(), folder: tildePath(store.dir) } } : {}),
+    });
+  }
+
+  /** Sharing sessions between browsers. Needs no API key; see shared-store.js. */
+  async function handleSync(req, res) {
+    if (!store) return sendError(res, 503, 'no_store', 'This server could not open its shared-sessions folder. Check the log: npm run server:logs');
+    if (!syncLimiter.take()) return sendError(res, 429, 'rate_limited', 'Too many requests. Wait a moment.');
+    const body = await readJson(req, SYNC_MAX_BYTES);
+    if (!body || typeof body !== 'object') throw new RequestError('Body must be a JSON object.');
+    try {
+      sendJson(res, 200, await store.sync(body));
+    } catch (err) {
+      if (err?.code === 'bad_request') throw new RequestError(err.message);
+      throw err;
+    }
   }
 
   async function handlePlan(req, res) {
@@ -165,14 +191,20 @@ function tooLarge() {
   return err;
 }
 
-async function readJson(req) {
+/** "~/Library/Application Support/Decltr/shared": a folder to show people, without their user name. */
+function tildePath(path) {
+  const home = process.env.HOME || process.env.USERPROFILE || '';
+  return home && path.startsWith(home) ? `~${path.slice(home.length)}` : path;
+}
+
+async function readJson(req, maxBytes = MAX_BODY_BYTES) {
   // A declared size that is already too big is refused before reading anything.
-  if (Number(req.headers['content-length']) > MAX_BODY_BYTES) throw tooLarge();
+  if (Number(req.headers['content-length']) > maxBytes) throw tooLarge();
   const chunks = [];
   let size = 0;
   for await (const chunk of req) {
     size += chunk.length;
-    if (size > MAX_BODY_BYTES) throw tooLarge();
+    if (size > maxBytes) throw tooLarge();
     chunks.push(chunk);
   }
   try {

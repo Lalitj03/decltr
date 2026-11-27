@@ -13,6 +13,7 @@ import { applyPlan, describeResult, hasUndoableChanges, needsBookmarks, tabsToRe
 import { ago, countByAge, knowsLastUse, planArchive } from './lib/archive.js';
 import { LIGHT_OPEN_FROM } from './lib/light-open.js';
 import { createSessionsView } from './sessions-view.js';
+import { createShareView } from './share-view.js';
 import { isSessionKey } from './lib/sessions.js';
 import { LINKS_KEY, unlinkAll } from './lib/tracker.js';
 
@@ -83,6 +84,18 @@ const sessionsView = createSessionsView({
   getSettings: () => ({ includePinned: state.includePinned, autoNameSessions: state.autoNameSessions, liveSessions: state.liveSessions }),
 });
 
+const shareView = createShareView({
+  els: { box: $('shareBox'), chip: $('shareChip'), alerts: $('sessionAlerts') },
+  sessionsView,
+  isVisible: () => state.view === 'sessions' || !els.settings.hidden,
+  openSettings: (target) => {
+    els.settings.hidden = false;
+    els.settingsBtn.setAttribute('aria-expanded', 'true');
+    target.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    shareView.shown();
+  },
+});
+
 /* ------------------------------------------------------------------ setup */
 
 async function init() {
@@ -105,6 +118,7 @@ async function init() {
   renderExamples();
   wireEvents();
   sessionsView.renderList();
+  shareView.init();
   updateTabCount();
   restoreUndoBanner();
   refreshHealth();
@@ -146,6 +160,7 @@ function wireEvents() {
     const open = els.settings.hidden;
     els.settings.hidden = !open;
     els.settingsBtn.setAttribute('aria-expanded', String(open));
+    if (open) shareView.shown();
   });
   els.includePinned.addEventListener('change', async () => {
     state.includePinned = els.includePinned.checked;
@@ -270,7 +285,10 @@ function showView(view) {
   els.sessionsView.hidden = !sessions;
   els.navOrganize.setAttribute('aria-selected', String(!sessions));
   els.navSessions.setAttribute('aria-selected', String(sessions));
-  if (sessions) sessionsView.refresh();
+  if (sessions) {
+    sessionsView.refresh();
+    shareView.shown();
+  }
 }
 
 /**

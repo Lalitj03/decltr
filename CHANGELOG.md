@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.8.0 (unreleased): share sessions between browsers (server 0.4.0)
+
+- Advanced: Chrome, Edge, Brave and other Chromium browsers on this computer can see the same sessions, through the optional Decltr server. Changes go across by themselves. A deletion wins; typed names beat AI names; name and tabs merge separately.
+- One browser at a time keeps a session live; "Sync here instead" moves it.
+- Safety nets: nothing is deleted when sharing starts, mass removals wait for you, the server keeps daily copies for 7 days, and turning sharing off keeps every session.
+- When the server is stopped, each browser keeps working with its own copy and catches up when it is back.
+- Server: `/v1/sessions/sync`, a shared folder only you can read, `DECLTR_DATA_DIR`, and sharing in `npm run server:status`.
+- New permission `alarms` (no install warning), for syncing every few minutes.
+
 ## 0.7.0 (unreleased): export and import
 
 - Export sessions to a file, or copy them as Markdown links. Import Decltr files, OneTab exports, Markdown links, bookmarks files or any list of links, with a preview, "Already here" for sessions you have, and Undo.
