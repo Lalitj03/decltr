@@ -4,7 +4,7 @@ Registration and publishing are free. Sign in at https://partner.microsoft.com/d
 
 ## 1. Package
 
-Run `npm run package` and upload `dist/decltr-<version>.zip`. It has no development `key`, so Edge assigns its own extension ID.
+Run `npm run package` and upload `dist/decltr-<version>-store.zip`. It has no development `key`, so Edge assigns its own extension ID.
 
 ## 2. Availability
 
@@ -31,7 +31,7 @@ Decltr always shows its plan first. You can switch off any step or drop single t
 
 Works with the AI you choose. Use Google Gemini with your own API key, Ollama running on your own computer so nothing leaves it, or any OpenAI-compatible service such as OpenAI, OpenRouter, Groq, LM Studio, llama.cpp or vLLM.
 
-Many features need no AI at all. Group by site, close duplicates, bookmark and clear, and ungroup all work on your device. Archive old tabs saves the tabs you have not used for a week, a month or longer as a session, then closes them. Sessions let you save a window as a named workspace, clear it, and reopen it later in any window, all of it or just the groups or tabs you pick. An opened session keeps itself up to date.
+Many features need no AI at all. Group by site, close duplicates, bookmark and clear, and ungroup all work on your device. Archive old tabs saves the tabs you have not used for a week, a month or longer as a session, then closes them. Sessions let you save a window as a named workspace, clear it, and reopen it later in any window, all of it or just the groups or tabs you pick. An opened session keeps itself up to date. Export sessions to a file as a backup or to share them, and import Decltr files, OneTab exports or any list of links.
 
 Built for hundreds of tabs. Big windows are planned by AI in parts, with progress you can follow and stop. Big sessions open without loading every tab, so opening 650 tabs does not run out of memory. A window with hundreds of tabs gets suggestions to make it lighter.
 

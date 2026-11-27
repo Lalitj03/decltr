@@ -2,12 +2,13 @@
 // Extensions.loadUnpacked is only offered on a pipe connection with --enable-unsafe-extension-debugging.
 import { spawn } from 'node:child_process';
 
-const CHROME = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
+export const CHROME = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
+export const EDGE = '/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge';
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-export function launchChromePipe({ profileDir, extraArgs = [] }) {
+export function launchChromePipe({ profileDir, extraArgs = [], binary = CHROME }) {
   const child = spawn(
-    CHROME,
+    binary,
     [
       '--remote-debugging-pipe', '--enable-unsafe-extension-debugging', `--user-data-dir=${profileDir}`,
       '--no-first-run', '--no-default-browser-check', '--window-size=900,700', '--window-position=40,40', ...extraArgs, 'about:blank',

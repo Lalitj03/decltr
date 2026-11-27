@@ -1,6 +1,6 @@
 # Chrome Web Store listing
 
-Copy these into the [developer dashboard](https://chrome.google.com/webstore/devconsole). Upload `dist/decltr-<version>.zip` from `npm run package`.
+Copy these into the [developer dashboard](https://chrome.google.com/webstore/devconsole). Upload `dist/decltr-<version>-store.zip` from `npm run package`.
 
 ## Store listing tab
 
@@ -34,6 +34,7 @@ NO AI NEEDED FOR
 • Group by site, close duplicates, bookmark and clear, ungroup all
 • Archive old tabs: save the tabs you have not used for a week, a month or longer as a session, then close them
 • Sessions: save a window as a named workspace, clear it, and reopen it later in any window, all of it or just the groups or tabs you pick. An opened session keeps itself up to date.
+• Export sessions to a file as a backup or to share, and import Decltr files, OneTab exports or any list of links
 
 BUILT FOR HUNDREDS OF TABS
 • Big windows are planned by AI in parts, with progress you can follow and stop
@@ -72,6 +73,7 @@ Decltr organizes the tabs in the current browser window (grouping, ungrouping, c
 | `tabGroups` | Creates, names, colors, ungroups and restores tab groups, which is the main thing Decltr does. |
 | `sidePanel` | Decltr's whole interface is a side panel next to the user's tabs. |
 | `storage` | Keeps the user's settings, saved sessions, undo information and the AI model settings they entered, locally in this browser. |
+| `unlimitedStorage` | Saved sessions can hold thousands of tabs (people save windows with 650 tabs and archive old tabs), which can pass the browser's 10 MB storage limit. Everything stays in this browser. |
 | `declarativeNetRequestWithHostAccess` | Only when the user chooses Ollama: sets the Origin header on Decltr's own requests to the Ollama address the user entered, because Ollama refuses browser-extension origins by default. One rule, limited to that address and to Decltr's requests, removed when the user picks another model. |
 | `bookmarks` (optional) | Asked for only the first time the user applies a plan that saves bookmarks. Creates bookmarks in an "Other bookmarks → Decltr" folder, and removes them again on undo. |
 | Host `http://127.0.0.1:47821/*` | The optional Decltr server that some users run on their own computer to keep their API key in the macOS Keychain. It only listens on this computer. |

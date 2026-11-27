@@ -1,4 +1,6 @@
 import { h, icon, progressView } from './ui.js';
+import { createTransferView } from './transfer-view.js';
+import { matchesQuery } from './lib/session-format.js';
 import { snapshot } from './lib/tabs.js';
 import { nameWithAI } from './lib/ai/index.js';
 import { undoPlan } from './lib/actions.js';
@@ -21,7 +23,81 @@ const nameInput = (session) => session.tabs.map((t) => ({ title: t.title, url: t
 export function createSessionsView({ els, getSettings, getAiConfig }) {
   const suggestName = (tabs) => nameWithAI(tabs, getAiConfig());
   // picked: sessionId -> Set of tab positions chosen in the picker ("open part of a session").
-  const state = { busy: false, nameEdited: false, confirmId: null, confirmTimer: null, expanded: new Set(), editingId: null, lastSig: '', deferred: false, picked: new Map(), stop: null };
+  const state = {
+    busy: false, nameEdited: false, confirmId: null, confirmTimer: null, expanded: new Set(), editingId: null, lastSig: '', deferred: false,
+    picked: new Map(), stop: null, query: '', fresh: new Set(), freshTimer: null,
+  };
+  const searchCache = new Map();
+  /** Decorations from sharing (share-view.js): which browser made a session, and which sessions are live elsewhere. */
+  let sharing = { on: false, peers: [], fromName: () => null, liveElsewhere: () => null, takeOver: null };
+
+  const transfer = createTransferView({
+    els: { tool: els.tool, status: els.status, importFile: els.importFile },
+    setStatus: (s) => setStatus(s),
+    onImported: (ids) => highlight(ids),
+    getSharing: () => sharing,
+  });
+  els.importBtn.append(icon('import', 14), 'Import');
+  els.exportBtn.append(icon('export', 14), 'Export');
+  els.importBtn.addEventListener('click', () => transfer.pickFile());
+  els.exportBtn.addEventListener('click', () => transfer.openExport());
+  els.searchIcon.append(icon('search', 15));
+  let searchTimer;
+  els.search.addEventListener('input', () => {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => {
+      state.query = els.search.value.trim();
+      renderList({ force: true });
+    }, 120);
+  });
+  els.search.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && els.search.value) {
+      e.preventDefault();
+      els.search.value = '';
+      state.query = '';
+      renderList({ force: true });
+    }
+  });
+
+  // Drop a file anywhere on the Sessions tab to import it. A box shows where while a file is dragged over.
+  els.dropIcon.append(icon('import', 22));
+  let dragDepth = 0;
+  const hasFiles = (e) => [...(e.dataTransfer?.types ?? [])].includes('Files');
+  els.view.addEventListener('dragenter', (e) => {
+    if (!hasFiles(e)) return;
+    e.preventDefault();
+    dragDepth++;
+    els.drop.hidden = false;
+  });
+  els.view.addEventListener('dragover', (e) => {
+    if (!hasFiles(e)) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+  });
+  els.view.addEventListener('dragleave', (e) => {
+    if (!hasFiles(e)) return;
+    dragDepth = Math.max(0, dragDepth - 1);
+    if (dragDepth === 0) els.drop.hidden = true;
+  });
+  els.view.addEventListener('drop', (e) => {
+    if (!hasFiles(e)) return;
+    e.preventDefault();
+    dragDepth = 0;
+    els.drop.hidden = true;
+    const file = e.dataTransfer.files?.[0];
+    if (file) transfer.importFile(file);
+  });
+
+  /** Mark just-imported sessions for a few seconds, and bring the first into view. */
+  function highlight(ids) {
+    state.fresh = new Set(ids);
+    clearTimeout(state.freshTimer);
+    state.freshTimer = setTimeout(() => {
+      state.fresh = new Set();
+      renderList({ force: true });
+    }, 6000);
+    renderList({ force: true }).then(() => els.list.querySelector('.session.fresh')?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }));
+  }
 
   const windowSnapshot = () => snapshot({ includePinned: getSettings().includePinned, limit: Infinity });
 
@@ -167,13 +243,28 @@ export function createSessionsView({ els, getSettings, getAiConfig }) {
     els.count.textContent = String(sessions.length);
     els.count.hidden = sessions.length === 0;
     els.empty.hidden = sessions.length > 0;
+    els.exportBtn.disabled = sessions.length === 0;
+
+    // A search box once the list is long enough to need one.
+    els.searchRow.hidden = sessions.length < 10 && !state.query;
+    const shown = state.query ? sessions.filter((s) => matchesQuery(s, state.query, searchCache)) : sessions;
+    els.searchCount.textContent = state.query ? `${shown.length} of ${sessions.length}` : '';
+    els.noMatches.hidden = !(state.query && sessions.length && shown.length === 0);
+    els.noMatches.textContent = state.query ? `No session matches “${state.query}”. Search looks at names, tab titles and addresses.` : '';
 
     // Live sessions change often; skip the rebuild when nothing visible changed.
-    const sig = JSON.stringify([sessions.map((s) => [s.id, s.name, s.updatedAt, s.tabs.length, live.has(s.id)]), [...state.expanded], state.confirmId, state.busy]);
+    const decor = shown.map((s) => [s.id, s.name, s.updatedAt, s.tabs.length, live.has(s.id), sharing.fromName(s), sharing.liveElsewhere(s.id)?.name ?? '']);
+    const sig = JSON.stringify([decor, [...state.expanded], state.confirmId, state.busy, state.query, [...state.fresh], sharing.on]);
     if (sig === state.lastSig && !force) return;
     state.lastSig = sig;
     state.deferred = false;
-    els.list.replaceChildren(...sessions.map((s) => sessionCard(s, live.has(s.id))));
+    els.list.replaceChildren(...shown.map((s) => sessionCard(s, live.has(s.id))));
+  }
+
+  /** Called by the sharing view whenever what it knows changes. */
+  function setSharing(next) {
+    sharing = { ...sharing, ...next };
+    renderList();
   }
 
   function sessionCard(session, isLive) {
@@ -181,7 +272,7 @@ export function createSessionsView({ els, getSettings, getAiConfig }) {
     const confirming = state.confirmId === session.id;
     const shown = session.tabs.slice(0, 8);
 
-    return h('li', { class: 'session' },
+    return h('li', { class: `session${state.fresh.has(session.id) ? ' fresh' : ''}`, 'data-id': session.id },
       h('div', { class: 'session-main' },
         state.editingId === session.id ? renameForm(session) : titleRow(session),
         h('div', { class: 'session-meta' }, `${describeSession(session)} · ${formatDate(isLive ? session.updatedAt : session.createdAt)}`),
@@ -367,7 +458,10 @@ export function createSessionsView({ els, getSettings, getAiConfig }) {
       }),
     );
     const node = h('div', { class: 'picker' },
-      h('div', { class: 'picker-bar' }, h('span', null, 'Open only some tabs?'), select),
+      h('div', { class: 'picker-bar' },
+        h('span', null, 'Open only some tabs?'),
+        h('span', { class: 'row' }, select,
+          h('button', { class: 'icon-btn small', type: 'button', title: 'Export this session to a file', 'aria-label': `Export ${session.name}`, onClick: () => transfer.openExport(session.id) }, icon('export', 14)))),
       list,
       foot,
     );
@@ -445,5 +539,5 @@ export function createSessionsView({ els, getSettings, getAiConfig }) {
     await Promise.all([renderList(), refreshSaveBox()]);
   }
 
-  return { refresh, renderList, refreshSaveBox };
+  return { refresh, renderList, refreshSaveBox, setSharing, openExport: (id) => transfer.openExport(id), setStatus: (st) => setStatus(st) };
 }

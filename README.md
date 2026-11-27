@@ -153,10 +153,18 @@ The **Sessions** tab saves a window as a named workspace and reopens it later, i
 - **Live sessions.** When you open a session into a new window (or into a window that has no real tabs), that window follows the session: tabs you open, close, move, pin, regroup or navigate are saved back to it, a couple of seconds after each change. A card shows a green **Live** line with **Stop syncing**. Opening a live session again switches to its window instead of making a copy. The "Keep opened sessions up to date" setting turns the whole feature off.
 - Syncing is careful by design: a window that is closing is never saved halfway, a window with no real tabs never empties a session, Save & clear and Undo stop the window from following the session first, and a deleted session is never recreated. The flip side is that closing a tab in a live window removes it from the session. Use **Stop syncing** if you want to experiment without changing the saved one. Adding a session to a window that already has tabs does not make that window live.
 - Pinned tabs are saved and cleared only if "Include pinned tabs" is on in settings, like everywhere else in Decltr.
-- Sessions live in this browser profile's extension storage (`chrome.storage.local`), including when each tab was last used. They are not synced and are not sent anywhere. The only exception is optional AI naming, which sends the session's tab titles and addresses (without query strings) to your chosen model, like any other AI action. They include full URLs, so anything in a URL is stored as is.
+- Sessions live in this browser profile's extension storage (`chrome.storage.local`), including when each tab was last used. They are not synced and are not sent anywhere. Decltr keeps up to 1000 sessions. The only exception is optional AI naming, which sends the session's tab titles and addresses (without query strings) to your chosen model, like any other AI action. They include full URLs, so anything in a URL is stored as is.
 - Pages that cannot be reopened by an extension (`javascript:`, `data:`, other extensions' pages) and blank tabs are not saved.
 - **Big sessions open lightly.** From 16 tabs, every tab appears right away, but only the tab you land on and pinned tabs load. The others load when you click them, so even a 650-tab session cannot use up your computer's memory. Decltr opens a few tabs at a time, waits until Chrome knows each page's address and title, then unloads it. A page that is slow to send its title shows its address until you click it, and the saved session keeps the real title. A progress bar shows how far it is, and Stop keeps what has opened so far. Undoing a big close reopens the tabs the same way.
 - **Open part of a session.** Expand a session (the arrow) to see its tabs under their groups. Tick whole groups or single tabs, or use *Pick…* to choose the 10, 25, 50 or 100 most or least recently used tabs, then open just those in a new window or this one. A window that shows part of a session is not kept up to date, so the saved session stays whole. Sessions saved before version 0.6 do not know when their tabs were used, so they offer groups and single tabs only.
+
+### Export and import
+
+- **Export** (next to "Saved sessions") saves the sessions you tick to a file, `Decltr sessions <date>.json`. It holds everything about them: tabs, groups, pinned tabs, archive marks and when each tab was last used. Use it as a backup (removing the extension deletes its sessions), to move sessions to another browser or computer, or to send tabs to someone. The file holds the full address of every tab, so check it before you send it on. **Copy as links** copies the sessions as a Markdown list for notes or a chat instead. A single session can be exported from its tab list (the arrow, then the export icon).
+- **Import** a file with the button, or drop it anywhere on the Sessions tab. Decltr shows what is in it first: each session with a checkbox, and **Already here** on sessions whose tabs and groups you already have. Importing only adds sessions; nothing is replaced or deleted, and Undo takes them out again.
+- Besides Decltr files, import reads **lists of links**: a OneTab export (each block becomes a session), Markdown links (`##` headings become sessions and `###` headings become groups), a bookmarks file, or any text with web addresses in it.
+- A file can come from anyone, so it is checked like anything from the internet: only web pages and local files are opened (no browser pages such as `chrome://settings`), icon addresses in the file are ignored, and every session gets a new ID. Files of up to 25 MB and up to 1000 sessions can be imported.
+- From 10 sessions, **Find a session** searches names, groups, tab titles and addresses.
 
 Bookmarks go into **Other bookmarks → Decltr → \<folder\>**. The first time a plan saves bookmarks, Chrome asks whether Decltr may use them. If you say no, nothing in that plan is changed, so tabs are never closed without being saved. Pinned tabs are left alone unless you enable them in settings.
 
@@ -203,7 +211,7 @@ npm test         # server and extension logic, using a mock of the Chrome APIs
 npm run dev:ui   # preview the side panel in a normal tab: http://localhost:5173/panel
                  #   ?server=offline | nokey | billing    &tabs=many
 npm run icons    # regenerate extension/icons
-npm run package  # dist/decltr-<version>.zip for Edge Add-ons and the Chrome Web Store, without the development "key"
+npm run package  # dist/decltr-<version>-store.zip (stores, no "key") and -unpacked.zip (GitHub releases, pinned ID)
 ```
 
 ## Contributing, security and privacy

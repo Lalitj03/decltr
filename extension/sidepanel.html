@@ -138,6 +138,10 @@
       </main>
 
       <section id="sessionsView" class="thread" hidden>
+        <div id="dropZone" class="drop-zone" hidden aria-hidden="true">
+          <div class="drop-box"><span id="dropIcon"></span><b>Drop to import sessions</b><small>A Decltr export file, or a list of links</small></div>
+        </div>
+        <input id="importFile" type="file" accept=".json,.txt,.md,.markdown,.html,.htm,application/json,text/plain,text/markdown,text/html" hidden />
         <form id="saveBox" class="save-box" autocomplete="off">
           <h2>Save this window</h2>
           <p id="saveInfo" class="sub"></p>
@@ -151,9 +155,22 @@
           </div>
         </form>
         <div id="sessionStatus" aria-live="polite"></div>
-        <p class="examples-title">Saved sessions</p>
+        <div class="list-head">
+          <span class="label">Saved sessions</span>
+          <button id="shareChip" class="share-chip" type="button" hidden></button>
+          <button id="importBtn" class="icon-btn labelled" type="button" title="Import sessions from a file, or drop a file here"></button>
+          <button id="exportBtn" class="icon-btn labelled" type="button" title="Save sessions to a file"></button>
+        </div>
+        <div id="sessionAlerts"></div>
+        <div id="sessionTool"></div>
+        <div id="searchRow" class="search-row" hidden>
+          <span id="searchIcon"></span>
+          <input id="sessionSearch" type="search" placeholder="Find a session" aria-label="Find a session by name, tab title or address" autocomplete="off" spellcheck="false" />
+          <small id="searchCount"></small>
+        </div>
         <ul id="sessionList" class="session-list"></ul>
-        <p id="sessionsEmpty" class="empty" hidden>Nothing saved yet. Save this window and it will show up here, ready to open from any window.</p>
+        <p id="sessionsEmpty" class="empty" hidden>Nothing saved yet. Save this window and it will show up here, ready to open from any window. You can also import sessions from a file.</p>
+        <p id="noMatches" class="empty" hidden></p>
       </section>
 
       <footer class="composer">

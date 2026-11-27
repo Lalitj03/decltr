@@ -75,6 +75,9 @@ const sessionsView = createSessionsView({
   els: {
     name: $('sessionName'), suggestBtn: $('suggestBtn'), saveBox: $('saveBox'), saveBtn: $('saveBtn'), saveClearBtn: $('saveClearBtn'), saveInfo: $('saveInfo'),
     status: $('sessionStatus'), list: $('sessionList'), empty: $('sessionsEmpty'), count: $('sessionCount'),
+    view: $('sessionsView'), drop: $('dropZone'), dropIcon: $('dropIcon'), importFile: $('importFile'), importBtn: $('importBtn'), exportBtn: $('exportBtn'),
+    tool: $('sessionTool'), alerts: $('sessionAlerts'), searchRow: $('searchRow'), search: $('sessionSearch'), searchIcon: $('searchIcon'), searchCount: $('searchCount'),
+    noMatches: $('noMatches'), shareChip: $('shareChip'),
   },
   getAiConfig: () => state.ai,
   getSettings: () => ({ includePinned: state.includePinned, autoNameSessions: state.autoNameSessions, liveSessions: state.liveSessions }),

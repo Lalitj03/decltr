@@ -1,0 +1,21 @@
+<!doctype html>
+<!-- The three mocks side by side, for one review image: http://localhost:5173/dev/share-lab/mocks.html -->
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<style>
+  body { margin: 0; background: #e9e9f2; font: 600 13px system-ui, -apple-system, sans-serif; color: #1b1b2f; }
+  .row { display: flex; gap: 20px; padding: 20px; align-items: flex-start; }
+  figure { margin: 0; display: flex; flex-direction: column; gap: 8px; }
+  figcaption { padding-left: 4px; }
+  iframe { width: 440px; height: 980px; border: 0; border-radius: 14px; background: #f7f7fb; box-shadow: 0 1px 2px rgb(20 20 50 / 8%), 0 8px 24px rgb(20 20 50 / 10%); }
+</style>
+</head>
+<body>
+<div class="row">
+  <figure><figcaption>1. Sessions with sharing on</figcaption><iframe src="mock.html?view=sessions"></iframe></figure>
+  <figure><figcaption>2. Import (drop or button) and export</figcaption><iframe src="mock.html?view=import"></iframe></figure>
+  <figure><figcaption>3. Settings: turning sharing on, on, paused</figcaption><iframe src="mock.html?view=settings"></iframe></figure>
+</div>
+</body>
+</html>

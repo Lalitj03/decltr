@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.7.0 (unreleased): export and import
+
+- Export sessions to a file, or copy them as Markdown links. Import Decltr files, OneTab exports, Markdown links, bookmarks files or any list of links, with a preview, "Already here" for sessions you have, and Undo.
+- Drop a file on the Sessions tab to import it.
+- Find a session by name, group, tab title or address, from 10 sessions.
+- Up to 1000 sessions, and the newest are always the ones listed (before, the list could skip sessions beyond 200).
+- `npm run package` builds a store zip and an unpacked zip that keeps the pinned extension ID, for GitHub releases.
+- New permission `unlimitedStorage` (no install warning), so big sessions never hit the browser's 10 MB limit.
+
 ## 0.6.0 (unreleased): big windows
 
 - AI actions work on windows with hundreds of tabs. Windows with more than 80 tabs are planned in parts, and similar groups from different parts are merged. Progress is shown, and Stop cancels.

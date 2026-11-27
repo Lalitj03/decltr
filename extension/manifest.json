@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Decltr",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "description": "Tell Decltr how to tidy your tabs in plain English. Group, close, move to a new window or bookmark them.",
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA1Cdkuanzar0nVC6URTK3Xkl/fBHOFQtqMcpovOrEHov4btV+1lByp7OgRVy15/S4FBWXYw6d+lHMPMGaO1R8jfKoki94eUVy9F4iXHjJfylu8VJKL6nh02xFcEaEwLlFqjxuPhlzEOaDf6bCytqGNM/K4Q1gnVX19nqZt9C/R80zcEri4wlr11bmde1inx5s/taCDG3j/pWkfjSd7/BHWcWE8/LBd38X5F89orNVENwA5EMSkqbp1eG0NhvBZlOEei3KhptDDqbaRNXXpiA3VcO6GK0caFbv9m4SdsHmVXnqcj5plkd1Yn/S3TIcR4COAzYgMCu4y7jgnHNdJhIMrQIDAQAB",
   "minimum_chrome_version": "116",
@@ -10,6 +10,7 @@
     "tabGroups",
     "sidePanel",
     "storage",
+    "unlimitedStorage",
     "declarativeNetRequestWithHostAccess"
   ],
   "optional_permissions": [

@@ -12,6 +12,7 @@ Decltr is an independent, open-source hobby project. It has no server of its own
 | **Your request** and the **titles and addresses of the tabs involved** | Only when you use an AI action or AI naming, and only to the AI model **you** chose. Everything after `?` or `#` in an address is removed first. |
 | **API keys and AI settings** | Stored in this browser profile only (`chrome.storage.local`). Never synced. A key is sent only to the service it belongs to. |
 | **Saved sessions, settings, undo information** | Stored in this browser profile only. Never sent anywhere. Sessions include when each tab was last used, which is used for "Archive old tabs" and for opening the most or least recently used tabs. |
+| **Exported files** | Saved where your browser saves downloads, only when you press Export. They hold the full address of every tab in the sessions you picked. |
 | **Bookmarks** | Created in your own Chrome bookmarks, only when you apply a plan that saves bookmarks. |
 
 Where AI requests go depends on what you choose in Settings → AI model:

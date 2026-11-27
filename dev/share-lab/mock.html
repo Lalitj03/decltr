@@ -1,0 +1,148 @@
+<!doctype html>
+<!-- Mocks for the planned export/import and sharing features, drawn with the real side-panel styles.
+     Not wired to anything. Served by `npm run dev:ui`: http://localhost:5173/dev/share-lab/mock.html?view=sessions|import|settings -->
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<link rel="stylesheet" href="/extension/sidepanel.css" />
+<style>
+  body { width: 440px; height: auto; }
+  .mock { padding: 0 14px 18px; display: flex; flex-direction: column; gap: 12px; }
+  .top { padding-left: 0; padding-right: 0; }
+  .nav { margin: 0; }
+  .caption { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; color: var(--accent); margin: 6px 2px -4px; }
+  /* proposed new styles */
+  .list-head { display: flex; align-items: center; gap: 6px; margin-top: 4px; }
+  .list-head .label { flex: 1; color: var(--muted); font-size: 12px; }
+  .share-chip { display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: 2px 9px 2px 7px; background: var(--surface); }
+  .share-chip .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ok); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ok) 22%, transparent); }
+  .list-head .icon-btn { border: 1px solid var(--line); width: auto; padding: 0 9px; gap: 5px; display: inline-flex; font-size: 12px; font-weight: 600; color: var(--text); background: var(--surface); }
+  .live-row.elsewhere { color: var(--muted); }
+  .live-row.elsewhere .live-dot { background: var(--muted); box-shadow: 0 0 0 3px color-mix(in srgb, var(--muted) 18%, transparent); }
+  .from { display: inline-flex; align-items: center; gap: 3px; }
+  .import-list { list-style: none; margin: 0; padding: 0 12px; border-top: 1px solid var(--line); }
+  .import-row { display: flex; align-items: center; gap: 10px; padding: 8px 2px; border-bottom: 1px solid var(--line); }
+  .import-row:last-child { border-bottom: 0; }
+  .import-row .main { flex: 1; min-width: 0; }
+  .import-row .main b { display: flex; align-items: center; gap: 6px; font-size: 13px; }
+  .import-row .main small { color: var(--muted); font-size: 12px; }
+  .import-row.off { opacity: .55; }
+  .pill { font-size: 10.5px; font-weight: 600; padding: 1px 7px; border-radius: 999px; background: var(--surface-2); color: var(--muted); white-space: nowrap; }
+  .browsers { list-style: none; margin: 6px 0 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+  .browsers li { display: flex; align-items: center; gap: 8px; background: var(--surface); border: 1px solid var(--line); border-radius: 9px; padding: 6px 9px; font-size: 12.5px; }
+  .browsers li .name { flex: 1; min-width: 0; }
+  .browsers li small { color: var(--muted); }
+  .me-row { display: flex; align-items: center; gap: 6px; margin-top: 8px; font-size: 12.5px; }
+  .me-row b { font-weight: 650; }
+  .ok-line { display: flex; align-items: center; gap: 6px; color: var(--ok); font-size: 12px; margin-top: 8px; }
+  .settings { margin: 0; }
+  .card-foot .btn.primary { flex: 1; }
+  .drop { border: 2px dashed color-mix(in srgb, var(--accent) 55%, var(--line)); border-radius: var(--radius); background: var(--accent-soft); color: var(--accent); display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 16px; font-weight: 600; }
+  .drop small { color: var(--muted); font-weight: 400; }
+</style>
+</head>
+<body>
+<div id="out"></div>
+<script type="module">
+import { icon } from '/extension/ui.js';
+const EXTRA = {
+  import: '<path d="M12 3v11M7.5 9.5L12 14l4.5-4.5"/><path d="M4 15v3a2 2 0 002 2h12a2 2 0 002-2v-3"/>',
+  export: '<path d="M12 15V4M7.5 8.5L12 4l4.5 4.5"/><path d="M4 15v3a2 2 0 002 2h12a2 2 0 002-2v-3"/>',
+  share: '<circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="6" r="2.5"/><circle cx="18" cy="18" r="2.5"/><path d="M8.2 10.9l7.6-3.8M8.2 13.1l7.6 3.8"/>',
+};
+const ico = (name, size = 15) => {
+  const el = icon(name, size);
+  if (EXTRA[name]) el.querySelector('svg').innerHTML = EXTRA[name];
+  return el.outerHTML;
+};
+const favs = (n, more) => `<div class="favs" aria-hidden="true">${'<img class="fav" alt="">'.repeat(n)}${more ? `<span class="more">+${more}</span>` : ''}</div>`;
+const actions = (primary = 'New window') => `<div class="session-actions">
+  <button class="btn primary" type="button">${ico('newWindow')}${primary}</button>
+  <button class="btn" type="button">${ico('here')}This window</button>
+  <button class="icon-btn expand" type="button">${ico('chevron', 16)}</button>
+  <button class="icon-btn" type="button">${ico('trash', 16)}</button></div>`;
+const header = (count) => `<header class="top"><div class="brand"><img src="/extension/icons/icon32.png" alt="" width="22" height="22"><span class="brand-name">Decltr</span></div>
+  <div class="top-right"><button class="status" data-state="ok" type="button"><span class="dot"></span><span>Ready</span></button><button class="icon-btn" type="button">${ico('sliders', 18)}</button></div></header>
+  <nav class="nav"><button class="nav-tab" type="button" aria-selected="false">Organize</button><button class="nav-tab" type="button" aria-selected="true">Sessions <span class="count">${count}</span></button></nav>`;
+const listHead = (shared = true) => `<div class="list-head"><span class="label">Saved sessions</span>
+  ${shared ? `<span class="share-chip" title="Shared through the Decltr server"><span class="dot"></span>Shared with Edge</span>` : ''}
+  <button class="icon-btn" type="button" title="Import sessions from a file">${ico('import', 14)}Import</button>
+  <button class="icon-btn" type="button" title="Save sessions to a file">${ico('export', 14)}Export</button></div>`;
+
+const views = {
+  sessions: () => `${header(7)}
+    <p class="caption">Sessions, with sharing on</p>
+    ${listHead()}
+    <ul class="session-list">
+      <li class="session"><div class="session-main">
+        <div class="title-row"><div class="session-name">Lisbon trip</div><button class="icon-btn small" type="button">${ico('pencil', 14)}</button></div>
+        <div class="session-meta">42 tabs · 3 groups · 26 Nov, 10:12</div>
+        <div class="live-row"><span class="live-dot"></span><span class="live-text">Live: changes in its window are saved</span><button class="link-btn" type="button">Stop syncing</button></div>
+        ${favs(8, 34)}</div>${actions('Go to window')}</li>
+      <li class="session"><div class="session-main">
+        <div class="title-row"><div class="session-name">Thesis research</div><button class="icon-btn small" type="button">${ico('pencil', 14)}</button></div>
+        <div class="session-meta">120 tabs · 6 groups · 24 Nov</div>
+        <div class="live-row elsewhere"><span class="live-dot"></span><span class="live-text">Live in Microsoft Edge</span><button class="link-btn" type="button">Sync here instead</button></div>
+        ${favs(8, 112)}</div>${actions()}</li>
+      <li class="session"><div class="session-main">
+        <div class="title-row"><div class="session-name">Q3 budget review</div><button class="icon-btn small" type="button">${ico('pencil', 14)}</button></div>
+        <div class="session-meta">18 tabs · 2 groups · 25 Nov · <span class="from">from Edge</span></div>
+        ${favs(8, 10)}</div>${actions()}</li>
+    </ul>`,
+
+  import: () => `${header(7)}
+    <p class="caption">Import: drag a file onto Sessions, or press Import</p>
+    <div class="drop">${ico('import', 22)}Drop to import sessions<small>A Decltr export file, or a list of links</small></div>
+    <p class="caption">Then a preview, like every plan</p>
+    <section class="card">
+      <div class="card-head"><div class="title">${ico('import', 16)}Import from “Decltr sessions 20 Nov.json”</div>
+        <p>4 sessions · 312 tabs · exported 20 Nov from Chrome</p></div>
+      <ul class="import-list">
+        <li class="import-row"><input class="check" type="checkbox" checked><div class="main"><b>Lisbon trip</b><small>42 tabs · 3 groups · saved 12 Nov</small></div></li>
+        <li class="import-row off"><input class="check" type="checkbox" disabled><div class="main"><b>Thesis research</b><small>120 tabs · 6 groups · saved 3 Nov</small></div><span class="pill">Already here</span></li>
+        <li class="import-row"><input class="check" type="checkbox" checked><div class="main"><b>Weekend recipes</b><small>25 tabs · saved 9 Nov</small></div></li>
+        <li class="import-row"><input class="check" type="checkbox" checked><div class="main"><b>Not used since 2 Nov <span class="tag">${ico('clock', 12)}Archive</span></b><small>125 tabs · saved 16 Nov</small></div></li>
+      </ul>
+      <div class="info">${ico('archive', 16)}Sessions are added. Nothing here is replaced or deleted. They will also appear in Edge.</div>
+      <p class="fine">2 tabs were left out: browser pages that Decltr does not open from files.</p>
+      <div class="card-foot"><button class="btn primary" type="button">${ico('check', 16)}Import 3 sessions</button><button class="btn ghost" type="button">Cancel</button></div>
+    </section>
+    <p class="caption">Export</p>
+    <section class="card">
+      <div class="card-head"><div class="title">${ico('export', 16)}Export sessions</div><p>7 of 7 sessions · 451 tabs · about 140 KB</p></div>
+      <p class="fine" style="border-top:1px solid var(--line)">The file holds the full address of every tab, so check it before you send it to someone.</p>
+      <div class="card-foot"><button class="btn primary" type="button">${ico('export', 16)}Save file</button><button class="btn" type="button">${ico('copy', 15)}Copy as links</button></div>
+    </section>`,
+
+  settings: () => `<p class="caption" style="margin-top:12px">Settings · turning sharing on</p>
+    <section class="settings"><div class="server-box" style="margin-top:0">
+      <div class="server-head"><strong>Share sessions between browsers</strong><span class="server-state">Advanced</span></div>
+      <label class="switch-row" style="margin-top:8px"><input type="checkbox"><span class="switch"></span><span><strong>Share with other browsers on this computer</strong>
+        <small>Chrome, Edge, Brave and other browsers with Decltr see the same sessions, through the Decltr server. Sessions stay on this computer.</small></span></label>
+      <div class="ai-consent" style="margin-top:10px"><strong>Share your 5 sessions?</strong>
+        <p>They will appear in every browser on this computer that shares sessions, and sessions from those browsers will appear here. Nothing is deleted.</p>
+        <div class="row"><button class="btn small" type="button">Share</button><button class="btn small ghost" type="button">Export a backup first</button></div></div>
+    </div></section>
+    <p class="caption">Settings · sharing on</p>
+    <section class="settings"><div class="server-box" style="margin-top:0">
+      <div class="server-head"><strong>Share sessions between browsers</strong><span class="server-state">Up to date</span></div>
+      <label class="switch-row" style="margin-top:8px"><input type="checkbox" checked><span class="switch"></span><span><strong>Share with other browsers on this computer</strong>
+        <small>Through the Decltr server. Sessions stay on this computer.</small></span></label>
+      <div class="me-row">This browser is called <b>Google Chrome</b><button class="icon-btn small" type="button">${ico('pencil', 13)}</button></div>
+      <ul class="browsers">
+        <li>${ico('share', 14)}<span class="name">Microsoft Edge</span><small>active now</small><button class="link-btn" type="button">Remove</button></li>
+        <li>${ico('share', 14)}<span class="name">Brave</span><small>yesterday</small><button class="link-btn" type="button">Remove</button></li>
+      </ul>
+      <div class="ok-line">${ico('check', 14)}7 sessions shared · up to date</div>
+    </div></section>
+    <p class="caption">When the server is not running</p>
+    <section class="settings"><div class="server-box" style="margin-top:0">
+      <div class="server-head"><strong>Share sessions between browsers</strong><span class="server-state">Paused</span></div>
+      <p class="server-help">The Decltr server is not running. Everything keeps working here, and changes are shared when it is back. Start it with <code>npm run server:start</code></p>
+    </div></section>`,
+};
+const view = new URLSearchParams(location.search).get('view') ?? 'sessions';
+document.getElementById('out').innerHTML = `<div class="mock">${views[view]()}</div>`;
+</script>
+</body>
+</html>

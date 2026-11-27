@@ -349,6 +349,7 @@ export function createMockChrome({ tabs: seed = [], groups: seedGroups = [], boo
   function makeArea(store, areaName) {
     const clone = (v) => JSON.parse(JSON.stringify(v));
     return {
+      getKeys: async () => Object.keys(store), // Chrome 130+
       get: async (keys) => {
         if (keys == null) return clone(store);
         const list = typeof keys === 'string' ? [keys] : Array.isArray(keys) ? keys : Object.keys(keys);

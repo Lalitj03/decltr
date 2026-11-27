@@ -1,9 +1,15 @@
 // Saved sessions: a snapshot of a window (tabs, order, pinned state, groups) that
 // can be reopened later in any window. Stored in chrome.storage.local, i.e. only in
-// this browser profile. Nothing here is sent to the Decltr server or to Gemini.
+// this browser profile. With sharing on (share.js), they are also kept by the Decltr server
+// on this computer, and the other browsers there that share keep a copy too.
 
 import { clean } from './plan.js';
 import { openTabsLightly, weakTitle } from './light-open.js';
+import {
+  isBlankUrl, isRestorableUrl, KINDS, sanitizeSession, sanitizeSessions, SESSION_LIMITS, sortSessions,
+} from './session-format.js';
+
+export { isBlankUrl, isRestorableUrl, sanitizeSessions };
 
 // Each session is stored under its own key, so an automatic update rewrites one session
 // instead of all of them. LEGACY_KEY held every session in one array and is migrated.
@@ -12,15 +18,13 @@ const OLD_PREFIX = 'declt.session.'; // per-session keys, before the product was
 export const SESSION_PREFIX = 'decltr.session.';
 export const isSessionKey = (key) => key === LEGACY_KEY || key.startsWith(OLD_PREFIX) || key.startsWith(SESSION_PREFIX);
 const keyOf = (id) => `${SESSION_PREFIX}${id}`;
-const NAME_SOURCES = ['default', 'user', 'ai'];
-export const MAX_NAME = 60;
-const MAX_URL = 8192;
-const MAX_SESSIONS = 200;
-const MAX_TABS_PER_SESSION = 5000;
-const KINDS = ['archive']; // a session made by "Archive old tabs"; anything else is a normal session
+export const MAX_NAME = SESSION_LIMITS.name;
+export const MAX_SESSIONS = SESSION_LIMITS.sessions;
+/** Sessions deleted on purpose, so sharing can tell a deletion from a session that went missing. */
+export const DELETED_KEY = 'decltr.deleted';
 /** When a tab was last used, as Chrome reports it, or undefined when unknown. */
 const usedAt = (v) => (Number.isFinite(v) && v > 0 ? Math.round(v) : undefined);
-const GROUP_COLORS = ['grey', 'blue', 'red', 'yellow', 'green', 'pink', 'purple', 'cyan', 'orange'];
+const fullMessage = (n) => `Decltr keeps up to ${MAX_SESSIONS} sessions${n ? `, and this would make ${n}` : ''}. Delete some, or export them to a file and delete them here, then try again.`;
 
 const attempt = async (fn, fallback = null) => {
   try {
@@ -29,16 +33,6 @@ const attempt = async (fn, fallback = null) => {
     return fallback;
   }
 };
-
-/** Pages an extension can reopen. Anything else (javascript:, data:, other extensions) is skipped. */
-export function isRestorableUrl(url) {
-  return typeof url === 'string' && url.length <= MAX_URL && (/^(https?|file):\/\//i.test(url) || /^chrome:\/\//i.test(url) || url === 'about:blank');
-}
-
-/** A tab with nothing worth saving. */
-export function isBlankUrl(url) {
-  return !url || /^(chrome:\/\/(newtab|new-tab-page)\/?|about:blank)$/i.test(url);
-}
 
 const isOwnPage = (url) => typeof chrome !== 'undefined' && Boolean(chrome.runtime?.id) && String(url).startsWith(`chrome-extension://${chrome.runtime.id}/`);
 
@@ -84,6 +78,7 @@ export function buildSession({ name, nameSource, tabs, groups, kind, now = Date.
     id,
     name: given || defaultSessionName(new Date(now)),
     nameSource: given ? (nameSource ?? 'user') : 'default',
+    nameAt: now,
     ...(KINDS.includes(kind) ? { kind } : {}),
     createdAt: now,
     updatedAt: now,
@@ -92,55 +87,20 @@ export function buildSession({ name, nameSource, tabs, groups, kind, now = Date.
   };
 }
 
-/** Validate whatever is in storage. Corrupt entries are dropped, never trusted. */
-export function sanitizeSessions(raw) {
-  if (!Array.isArray(raw)) return [];
-  const out = [];
-  for (const s of raw.slice(0, MAX_SESSIONS)) {
-    if (!s || typeof s.id !== 'string' || !Array.isArray(s.tabs)) continue;
-    const groups = (Array.isArray(s.groups) ? s.groups : []).slice(0, 100).map((g) => ({
-      title: clean(g?.title, 40),
-      color: GROUP_COLORS.includes(g?.color) ? g.color : 'grey',
-      collapsed: Boolean(g?.collapsed),
-    }));
-    const tabs = s.tabs
-      .filter((t) => t && isRestorableUrl(t.url))
-      .slice(0, MAX_TABS_PER_SESSION)
-      .map((t) => ({
-        url: t.url,
-        title: clean(t.title, 120),
-        favIcon: typeof t.favIcon === 'string' && /^https?:\/\//i.test(t.favIcon) && t.favIcon.length <= 300 ? t.favIcon : '',
-        pinned: Boolean(t.pinned),
-        g: Number.isInteger(t.g) && t.g >= 0 && t.g < groups.length && !t.pinned ? t.g : -1,
-        ...(usedAt(t.used) ? { used: usedAt(t.used) } : {}),
-      }));
-    if (tabs.length === 0) continue;
-    out.push({
-      id: s.id,
-      name: clean(s.name, MAX_NAME) || 'Untitled session',
-      nameSource: NAME_SOURCES.includes(s.nameSource) ? s.nameSource : 'user',
-      ...(KINDS.includes(s.kind) ? { kind: s.kind } : {}),
-      createdAt: Number(s.createdAt) || 0,
-      updatedAt: Number(s.updatedAt) || Number(s.createdAt) || 0,
-      tabs,
-      groups,
-    });
-  }
-  return out;
-}
-
 // ---- storage ---------------------------------------------------------------
 
-let fallbackQueue = Promise.resolve();
+const fallbackQueues = new Map();
 
 /**
  * Run fn while holding a named lock. Web Locks make this exclusive across the side
  * panel, other windows' panels and the background worker, which all write sessions.
+ * Locks with different names may be nested; the same name may not.
+ * Where Web Locks do not exist (the tests), one queue per name stands in for them.
  */
 export function withLock(name, fn) {
   if (typeof navigator !== 'undefined' && navigator.locks?.request) return navigator.locks.request(name, fn);
-  const run = fallbackQueue.then(fn, fn);
-  fallbackQueue = run.catch(() => {});
+  const run = (fallbackQueues.get(name) ?? Promise.resolve()).then(fn, fn);
+  fallbackQueues.set(name, run.catch(() => {}));
   return run;
 }
 
@@ -181,17 +141,27 @@ const locked = (fn) =>
     return fn();
   });
 
-const readOne = async (id) => sanitizeSessions([(await chrome.storage.local.get(keyOf(id)))[keyOf(id)]])[0] ?? null;
+const readOne = async (id) => sanitizeSession((await chrome.storage.local.get(keyOf(id)))[keyOf(id)]);
 
-export const loadSessions = () =>
-  locked(async () => {
-    const all = await chrome.storage.local.get(null);
-    const raw = Object.entries(all).filter(([key]) => key.startsWith(SESSION_PREFIX)).map(([, value]) => value);
-    return sanitizeSessions(raw).sort((a, b) => b.createdAt - a.createdAt);
-  });
+/** The storage keys of every saved session, without reading the sessions themselves when the browser allows it. */
+async function sessionKeys() {
+  const keys = chrome.storage.local.getKeys ? await chrome.storage.local.getKeys() : Object.keys(await chrome.storage.local.get(null));
+  return keys.filter((k) => k.startsWith(SESSION_PREFIX));
+}
+
+/** Every session, checked, newest first. Sorting comes before the limit, so the newest are the ones kept. */
+export async function readAllSessions() {
+  const all = await chrome.storage.local.get(null);
+  const raw = Object.entries(all).filter(([key]) => key.startsWith(SESSION_PREFIX)).map(([, value]) => value);
+  return sortSessions(sanitizeSessions(raw)).slice(0, MAX_SESSIONS);
+}
+
+export const loadSessions = () => locked(readAllSessions);
 
 export const saveSession = (session) =>
   locked(async () => {
+    const keys = await sessionKeys();
+    if (!keys.includes(keyOf(session.id)) && keys.length >= MAX_SESSIONS) throw new Error(fullMessage());
     try {
       await chrome.storage.local.set({ [keyOf(session.id)]: session });
     } catch {
@@ -199,7 +169,49 @@ export const saveSession = (session) =>
     }
   });
 
-export const deleteSession = (id) => locked(() => chrome.storage.local.remove(keyOf(id)));
+/**
+ * Add many sessions in one write, for importing. All of them are written or none: the limit is checked
+ * first, and the browser writes one set of changes at once. Returns their IDs.
+ */
+export const addSessions = (sessions) =>
+  locked(async () => {
+    const keys = await sessionKeys();
+    if (keys.length + sessions.length > MAX_SESSIONS) throw Object.assign(new Error(fullMessage(keys.length + sessions.length)), { code: 'too_many' });
+    const entries = {};
+    for (const s of sessions) entries[keyOf(s.id)] = s;
+    try {
+      await chrome.storage.local.set(entries);
+    } catch {
+      throw new Error('Not enough browser storage for these sessions. Nothing was imported.');
+    }
+    return sessions.map((s) => s.id);
+  });
+
+/** Note sessions deleted on purpose (see DELETED_KEY). Must run inside the lock. */
+async function noteDeleted(ids) {
+  const at = Date.now();
+  const old = (await chrome.storage.local.get(DELETED_KEY))[DELETED_KEY] ?? [];
+  const next = [...old.filter((d) => !ids.includes(d.id)), ...ids.map((id) => ({ id, at }))].slice(-5000);
+  await chrome.storage.local.set({ [DELETED_KEY]: next });
+}
+
+export const deleteSession = (id) => removeSessions([id]);
+
+/** Delete sessions, for example to undo an import. */
+export const removeSessions = (ids) =>
+  locked(async () => {
+    if (ids.length === 0) return;
+    await chrome.storage.local.remove(ids.map(keyOf));
+    await noteDeleted(ids);
+  });
+
+/**
+ * Run fn while no one else reads or writes sessions in this browser. For syncing with other browsers,
+ * which reads and writes many sessions at once. fn must not call the other functions here, which take
+ * the same lock.
+ */
+export const withSessionsLock = (fn) => locked(fn);
+export const sessionKey = keyOf;
 
 /** Rename by hand. Returns the updated session, or null if it no longer exists or the name is empty. */
 export const renameSession = (id, name) =>
@@ -207,7 +219,7 @@ export const renameSession = (id, name) =>
     const session = await readOne(id);
     const clean_ = clean(name, MAX_NAME);
     if (!session || !clean_) return null;
-    const next = { ...session, name: clean_, nameSource: 'user' };
+    const next = { ...session, name: clean_, nameSource: 'user', nameAt: Date.now() };
     await chrome.storage.local.set({ [keyOf(id)]: next });
     return next;
   });
@@ -218,7 +230,7 @@ export const applyAutoName = (id, name) =>
     const session = await readOne(id);
     const clean_ = clean(name, MAX_NAME);
     if (!session || session.nameSource !== 'default' || !clean_) return false;
-    await chrome.storage.local.set({ [keyOf(id)]: { ...session, name: clean_, nameSource: 'ai' } });
+    await chrome.storage.local.set({ [keyOf(id)]: { ...session, name: clean_, nameSource: 'ai', nameAt: Date.now() } });
     return true;
   });
 
