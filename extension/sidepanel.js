@@ -1,4 +1,4 @@
-import { h, icon, progressView } from './ui.js';
+import { h, icon, progressView, tabIcon } from './ui.js';
 import { ApiError, checkHealth, controlServer, serverIsCurrent } from './lib/api.js';
 import { planWithAI, nameWithAI } from './lib/ai/index.js';
 import { AI_KEY, consentTarget, hasConsent, isConfigured, loadAiConfig, PROVIDER_NAMES } from './lib/ai/config.js';
@@ -239,7 +239,7 @@ function aiWhereText() {
   if (!c) return '';
   if (c.provider === 'server') return 'Through the Decltr server';
   if (!isConfigured(c)) return 'Choose a model first';
-  if (c.provider === 'ollama') return consentTarget(c) ? `Sends tab titles to ${new URL(c.ollama.baseUrl).host}` : 'Runs on this computer';
+  if (c.provider === 'ollama') return consentTarget(c) ? `Sends tab titles to ${new URL(consentTarget(c)).host}` : 'Runs on this computer';
   if (c.provider === 'google') return 'Sends tab titles to Google';
   return `Sends tab titles to ${new URL(c.openai.baseUrl).host}`;
 }
@@ -591,7 +591,7 @@ function planCard(plan, snap, again) {
 
   function tabRow(item, id) {
     const tab = snap.byId.get(id);
-    const fav = h('img', { class: 'fav', alt: '', src: tab?.favIconUrl || null, referrerpolicy: 'no-referrer', onError: (e) => e.target.removeAttribute('src') });
+    const fav = tabIcon(tab?.url);
     const when = item.type === 'archive' && tab?.lastAccessed ? h('span', { class: 'tab-when' }, ago(tab.lastAccessed)) : null;
     return h('li', { class: 'tab-item', title: tab?.url ?? '' },
       fav,

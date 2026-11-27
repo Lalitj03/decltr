@@ -1,4 +1,4 @@
-import { h, icon, progressView } from './ui.js';
+import { h, icon, progressView, tabIcon } from './ui.js';
 import { createTransferView } from './transfer-view.js';
 import { matchesQuery } from './lib/session-format.js';
 import { snapshot } from './lib/tabs.js';
@@ -296,7 +296,7 @@ export function createSessionsView({ els, getSettings, getAiConfig }) {
             )
             : null,
         h('div', { class: 'favs', 'aria-hidden': 'true' },
-          shown.map((t) => h('img', { class: 'fav', alt: '', src: t.favIcon || null, referrerpolicy: 'no-referrer', onError: (e) => e.target.removeAttribute('src') })),
+          shown.map((t) => tabIcon(t.url)),
           session.tabs.length > shown.length ? h('span', { class: 'more' }, `+${session.tabs.length - shown.length}`) : null,
         ),
       ),
@@ -461,7 +461,7 @@ export function createSessionsView({ els, getSettings, getAiConfig }) {
             boxes.set(i, box);
             return h('li', { class: `tab-item pick${showHead ? ' indent' : ''}`, title: t.url },
               box,
-              h('img', { class: 'fav', alt: '', src: t.favIcon || null, referrerpolicy: 'no-referrer', onError: (e) => e.target.removeAttribute('src') }),
+              tabIcon(t.url),
               h('span', { class: 'tab-title', onClick: () => toggle([i], !picked.has(i)) }, t.title || t.url),
               t.used ? h('span', { class: 'tab-when' }, ago(t.used)) : null,
             );

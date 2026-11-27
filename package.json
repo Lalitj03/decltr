@@ -1,6 +1,6 @@
 {
   "name": "decltr",
-  "version": "0.8.0",
+  "version": "0.8.1",
   "license": "MIT",
   "private": true,
   "description": "Decltr: organize Chrome tabs with plain-English instructions, using Gemini, Ollama or any OpenAI-compatible model. Includes an optional local server that keeps a Gemini API key in the macOS Keychain.",

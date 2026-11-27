@@ -341,7 +341,7 @@ test('which address Decltr must be allowed to reach, and what is still missing',
 });
 
 test('consent: nothing goes to another computer until the person agreed to that exact destination', async () => {
-  const { consentTarget, hasConsent, normalizeAiConfig } = await import('../extension/lib/ai/config.js');
+  const { consentTarget, describeDestination, hasConsent, normalizeAiConfig } = await import('../extension/lib/ai/config.js');
   const google = { provider: 'google', google: { apiKey: GEMINI_KEY, model: 'gemini-3.5-flash-lite' } };
   const groq = { provider: 'openai', openai: { baseUrl: 'https://api.groq.com/openai/v1', apiKey: 'gsk_testtesttest', model: 'm' } };
 
@@ -356,6 +356,17 @@ test('consent: nothing goes to another computer until the person agreed to that 
   }
   assert.equal(consentTarget({ provider: 'openai', openai: { baseUrl: 'http://localhost:1234/v1', model: 'm' } }), '');
   assert.equal(consentTarget({ provider: 'server' }), '');
+  // Ollama's cloud models are asked through this computer's Ollama, but run on ollama.com.
+  for (const model of ['gemma4:cloud', 'gpt-oss:120b-cloud', 'qwen3-coder:480b-cloud', 'GLM-4.6:Cloud']) {
+    const c = { provider: 'ollama', ollama: { baseUrl: 'http://127.0.0.1:11434', model } };
+    assert.equal(consentTarget(c), 'https://ollama.com', model);
+    assert.equal(describeDestination(c), "Ollama's cloud (ollama.com)");
+    assert.equal(hasConsent(c), false);
+    assert.equal(hasConsent({ ...c, consent: ['https://ollama.com'] }), true);
+  }
+  for (const model of ['llama3.2', 'llama3.2:latest', 'mycloud:7b', 'cloud', 'cloudy:latest', 'hf.co/x/cloud-model:q4']) {
+    assert.equal(consentTarget({ provider: 'ollama', ollama: { baseUrl: 'http://127.0.0.1:11434', model } }), '', model);
+  }
 
   // Without agreement, the request is refused before any network call, for plans and for naming.
   const { calls, fetchImpl } = scripted(geminiAnswer({ summary: '', actions: [] }));
@@ -363,6 +374,8 @@ test('consent: nothing goes to another computer until the person agreed to that 
   await assert.rejects(nameWithAI([{ title: 'a', url: 'https://a.com' }], google, { fetchImpl }), { code: 'no_consent' });
   // Agreeing to one service does not cover another.
   await assert.rejects(planWithAI({ instruction: 'x', tabs: TABS }, { ...groq, consent: ['https://generativelanguage.googleapis.com'] }, { fetchImpl }), { code: 'no_consent' });
+  const cloud = { provider: 'ollama', ollama: { baseUrl: 'http://127.0.0.1:11434', model: 'gemma4:cloud' } };
+  await assert.rejects(planWithAI({ instruction: 'x', tabs: TABS }, cloud, { fetchImpl }), (e) => e.code === 'no_consent' && /ollama\.com/.test(e.message));
   assert.equal(calls.length, 0, 'nothing was sent');
   assert.equal(hasConsent({ ...groq, consent: ['https://api.groq.com'] }), true);
 

@@ -11,7 +11,7 @@ const HELP = {
   google:
     'Your key is stored in this browser only and is sent only to Google. When you use an AI action, tab titles and addresses (without anything after "?" or "#") are sent to Google.',
   ollama:
-    'Runs on your computer, so tab details never leave it. Ollama must be running, with a model downloaded (for example: ollama pull llama3.2). Small models can be slower and less accurate.',
+    'Runs on your computer, so tab details never leave it. Ollama must be running, with a model downloaded (for example: ollama pull llama3.2). Small models can be slower and less accurate. Ollama\'s cloud models (names ending in "cloud") run on ollama.com instead, so Decltr asks before using one.',
   openai:
     'Works with OpenAI, OpenRouter, Groq, LM Studio, llama.cpp and anything else that speaks the OpenAI API. Tab titles and addresses (without anything after "?" or "#") are sent to that server.',
 };
@@ -87,7 +87,8 @@ export function createAiSettings({ els, getConfig, onSaved }) {
   /**
    * Before tab details can go to another computer, say exactly what is sent and where, and wait for a click on
    * "Agree and continue". Shown once per destination, so a new key for the same service does not ask again,
-   * but a different service does. Ollama on this computer never asks, because nothing leaves it.
+   * but a different service does. A model on this computer never asks, because nothing leaves it.
+   * An Ollama cloud model does ask, because Ollama passes the request on to ollama.com.
    */
   function showConsent(config) {
     const where = describeDestination(config);

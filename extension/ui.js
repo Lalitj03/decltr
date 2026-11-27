@@ -18,6 +18,17 @@ export function h(tag, props, ...children) {
   return el;
 }
 
+/**
+ * A tab's icon, taken from the browser's own icon store (the "favicon" permission) by page address,
+ * never loaded from the site, so showing a list of tabs contacts nobody. A page the browser has no icon
+ * for gets its default icon. Where that store is missing (the dev preview), a small dot is shown instead.
+ */
+export function tabIcon(pageUrl) {
+  const hasStore = typeof globalThis.chrome?.runtime?.getURL === 'function';
+  const src = pageUrl && hasStore ? chrome.runtime.getURL(`/_favicon/?pageUrl=${encodeURIComponent(pageUrl)}&size=32`) : null;
+  return h('img', { class: 'fav', alt: '', src, onError: (e) => e.target.removeAttribute('src') });
+}
+
 // Stroke icons (24x24 viewBox). Constant strings only, never user data.
 const PATHS = {
   sparkles: '<path d="M12 3l1.8 4.7 4.7 1.8-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8z"/><path d="M19 15l.7 1.8 1.8.7-1.8.7L19 20l-.7-1.8-1.8-.7 1.8-.7z"/>',

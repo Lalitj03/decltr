@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.8.1 (unreleased): nothing leaves your computer with local AI
+
+- Tab icons now come from the browser's own icon store. Before, the panel loaded each tab's icon from its site, so showing a session or a plan contacted those sites. Checked in Chrome and Edge: the panel makes no request about the tabs it shows. New permission `favicon`, with no new install warning (the `tabs` warning already covers it).
+- Ollama's cloud models (names ending in `cloud`, such as `gemma4:cloud`) run on ollama.com, so Decltr now asks before using one, like any online service, and says "Sends tab titles to ollama.com". Models on your computer still never ask.
+- New store text, short description and graphics that lead with what Decltr is: independent, open source, no account, no Decltr cloud. Brand guide in `store/BRAND.md`.
+
 ## 0.8.0 (unreleased): share sessions between browsers (server 0.4.0)
 
 - Advanced: Chrome, Edge, Brave and other Chromium browsers on this computer can see the same sessions, through the optional Decltr server. Changes go across by themselves. A deletion wins; typed names beat AI names; name and tabs merge separately.

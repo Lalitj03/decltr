@@ -86,6 +86,13 @@ const ORIGIN = /^https?:\/\/[^/?#\s]{1,255}$/;
 const LOOPBACK = /^(localhost|127\.\d+\.\d+\.\d+|\[::1\])$/i;
 
 /**
+ * Ollama's cloud models ("gemma4:cloud", "gpt-oss:120b-cloud") are asked through Ollama on this computer
+ * but run on ollama.com, so their tab details leave the computer like with any online service.
+ */
+export const OLLAMA_CLOUD = 'https://ollama.com';
+export const isOllamaCloudModel = (model) => /:(?:[^:]*-)?cloud$/i.test(typeof model === 'string' ? model : '');
+
+/**
  * Where tab details would go for the chosen provider, if that is anywhere other than this computer.
  * Returns the origin that needs the person's agreement, or '' when nothing leaves the computer.
  * The Decltr server is set up by hand in a terminal with its own key, so it is not asked about here.
@@ -93,6 +100,7 @@ const LOOPBACK = /^(localhost|127\.\d+\.\d+\.\d+|\[::1\])$/i;
 export function consentTarget(config) {
   const c = normalizeAiConfig(config);
   if (c.provider === 'server') return '';
+  if (c.provider === 'ollama' && isOllamaCloudModel(c.ollama.model)) return OLLAMA_CLOUD;
   const [pattern] = requiredOrigins(c);
   if (!pattern) return '';
   const origin = pattern.replace(/\/\*$/, '');
@@ -108,7 +116,8 @@ export function hasConsent(config) {
 export function describeDestination(config) {
   const c = normalizeAiConfig(config);
   const host = new URL(consentTarget(c) || 'http://localhost').host;
-  return c.provider === 'google' ? `Google (${host})` : host;
+  if (c.provider === 'google') return `Google (${host})`;
+  return c.provider === 'ollama' && isOllamaCloudModel(c.ollama.model) ? `Ollama's cloud (${host})` : host;
 }
 
 /** True when the chosen provider has everything it needs. For the server we cannot know until we ask it. */
